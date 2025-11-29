@@ -59,7 +59,7 @@ const Wallet = () => {
       .order("created_at", { ascending: false });
     setPayoutRequests(payoutData || []);
 
-    // Set up realtime subscription for payout updates
+    // Set up realtime subscription
     const channel = supabase
       .channel('payout-updates')
       .on(
@@ -77,8 +77,9 @@ const Wallet = () => {
               title: "Payment Successful! 💸",
               description: `₹${updatedRequest.amount} has been paid to your account`,
             });
-            loadWalletData();
           }
+          // Reload data regardless of status to keep UI in sync
+          loadWalletData();
         }
       )
       .subscribe();
@@ -129,36 +130,38 @@ const Wallet = () => {
 
     setIsSubmitting(true);
 
-    const { error } = await supabase.from("payout_requests").insert({
-      user_id: user.id,
-      amount: wallet.total_balance,
-      payout_method: payoutMethod,
-      upi_id: payoutMethod === "upi" ? upiId : null,
-      bank_account_number: payoutMethod === "bank" ? bankDetails.accountNumber : null,
-      bank_ifsc_code: payoutMethod === "bank" ? bankDetails.ifscCode : null,
-      bank_account_holder: payoutMethod === "bank" ? bankDetails.accountHolder : null,
-    });
+    try {
+      // Call the secure RPC function instead of raw insert
+      const { error } = await supabase.rpc('request_payout', {
+        p_amount: wallet.total_balance,
+        p_method: payoutMethod,
+        p_upi_id: payoutMethod === "upi" ? upiId : null,
+        p_bank_account_number: payoutMethod === "bank" ? bankDetails.accountNumber : null,
+        p_bank_ifsc_code: payoutMethod === "bank" ? bankDetails.ifscCode : null,
+        p_bank_account_holder: payoutMethod === "bank" ? bankDetails.accountHolder : null
+      });
 
-    setIsSubmitting(false);
+      if (error) throw error;
 
-    if (error) {
+      toast({
+        title: "Withdrawal Requested!",
+        description: `₹${wallet.total_balance.toFixed(2)} has been deducted and is pending processing.`,
+      });
+
+      setShowWithdrawalForm(false);
+      setUpiId("");
+      setBankDetails({ accountNumber: "", ifscCode: "", accountHolder: "" });
+      loadWalletData(); // Refresh UI to show new balance (0)
+
+    } catch (error: any) {
       toast({
         title: "Request Failed",
-        description: "Failed to submit withdrawal request. Please try again.",
+        description: error.message || "Failed to submit request.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    toast({
-      title: "Withdrawal Requested!",
-      description: `You'll receive ₹${wallet.total_balance.toFixed(2)} within 48 hours.`,
-    });
-
-    setShowWithdrawalForm(false);
-    setUpiId("");
-    setBankDetails({ accountNumber: "", ifscCode: "", accountHolder: "" });
-    loadWalletData();
   };
 
   const getStatusIcon = (status: string) => {

@@ -19,19 +19,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setIsLoading(true);
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+    // 1. Check if we are waiting for a Google/MagicLink redirect
+    // This prevents the app from kicking you out while it processes the token
+    const isHandlingRedirect = 
+      window.location.hash.includes('access_token') || 
+      window.location.search.includes('code');
+
+    // 2. Listen for auth changes (Sign In, Sign Out, Auto-Refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        // Always stop loading when a state change happens (login success/fail)
+        setIsLoading(false);
+      }
+    );
+
+    // 3. Initial Session Check
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (currentSession) {
+        // If we have a saved session, restore it immediately
+        setSession(currentSession);
+        setUser(currentSession.user);
+        setIsLoading(false);
+      } else if (!isHandlingRedirect) {
+        // ONLY stop loading if we are NOT waiting for a redirect.
+        // If we ARE waiting for a redirect (isHandlingRedirect = true), 
+        // we stay in "Loading..." state until onAuthStateChange fires above.
+        setIsLoading(false);
+      }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate("/");

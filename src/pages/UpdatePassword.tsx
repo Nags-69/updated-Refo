@@ -16,12 +16,10 @@ const UpdatePassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Supabase handles the session from the URL fragment
-    // We just need to provide the UI for the user to enter a new password
+    // Listener to ensure we catch the recovery session
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
-        // The user is in the password recovery flow
-        // The session is now set, and we can allow password update
+        console.log("Recovery session active");
       }
     });
 
@@ -39,53 +37,35 @@ const UpdatePassword = () => {
       setError("Password must be at least 8 characters long.");
       return;
     }
+    
     setError(null);
     setLoading(true);
 
     try {
-      // Get user to check against the new password
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        throw new Error("Could not find user to update.");
-      }
-
-      // Try to sign in with the new password. If it succeeds, the password is the same.
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: password,
+      // --- FIX START ---
+      // We removed the "signInWithPassword" check here.
+      // Directly update the user using the active Recovery Session.
+      const { error: updateError } = await supabase.auth.updateUser({ 
+        password: password 
       });
-      
-      // If there's no error, it means the password is the same as the old one.
-      if (!signInError) {
-        toast({
-          title: "Error",
-          description: "New password cannot be the same as the old one.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // If signInError is "Invalid login credentials", we can proceed. That's the expected error.
-      if (signInError.message !== 'Invalid login credentials') {
-        throw signInError;
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {
         throw updateError;
       }
 
-      // Sign out from the temporary password recovery session
+      // Sign out to force them to log in with the new credentials
       await supabase.auth.signOut();
 
       toast({
         title: "Success!",
-        description: "Your password has been updated. Please sign in again.",
+        description: "Your password has been updated. Please sign in.",
       });
-      navigate("/login"); // Navigate to login instead of dashboard
+      
+      navigate("/login"); 
+      // --- FIX END ---
+      
     } catch (err: any) {
+      console.error("Update failed:", err);
       setError(err.message);
       toast({
         title: "Error updating password",

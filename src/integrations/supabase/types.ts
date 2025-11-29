@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       affiliate_links: {
@@ -469,7 +464,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard: {
+        Row: {
+          user_id: string
+          username: string
+          avatar_seed: string
+          total_earnings: number
+          current_balance: number
+          tasks_completed: number
+          current_streak: number
+          badges_count: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       delete_old_task_proofs: { Args: never; Returns: undefined }
@@ -479,6 +486,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      request_payout: {
+        Args: {
+          p_amount: number
+          p_method: string
+          p_upi_id?: string | null
+          p_bank_account_number?: string | null
+          p_bank_ifsc_code?: string | null
+          p_bank_account_holder?: string | null
+        }
+        Returns: void
       }
     }
     Enums: {

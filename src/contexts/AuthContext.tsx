@@ -19,24 +19,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        // Note: Do not set isLoading here to avoid flashing the auth modal
-        // while the initial session restore is still in progress.
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+    setIsLoading(true);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
   const signOut = async () => {
     await supabase.auth.signOut();

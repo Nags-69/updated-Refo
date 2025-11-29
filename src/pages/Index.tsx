@@ -8,10 +8,12 @@ import { AuthModal } from "@/components/AuthModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Star, Shield, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const navigate = useNavigate();
   const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user } = useAuth();
 
@@ -20,14 +22,18 @@ const Index = () => {
   }, []);
 
   const loadOffers = async () => {
-    const { data } = await supabase
-      .from("offers")
-      .select("*")
-      .eq("is_public", true)
-      .eq("status", "active")
-      .limit(6);
-    
-    if (data) setOffers(data);
+    try {
+      const { data } = await supabase
+        .from("offers")
+        .select("*")
+        .eq("is_public", true)
+        .eq("status", "active")
+        .limit(6);
+      
+      if (data) setOffers(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGetStarted = () => {
@@ -106,20 +112,36 @@ const Index = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {offers.map((offer: any) => (
-              <OfferCard
-                key={offer.id}
-                title={offer.title}
-                description={offer.description}
-                logoUrl={offer.logo_url}
-                reward={offer.reward}
-                category={offer.category}
-                onStartTask={handleGetStarted}
-              />
-            ))}
+            {loading ? (
+              // Loading Skeletons to prevent lag feeling
+              Array(6).fill(0).map((_, i) => (
+                <div key={i} className="p-4 border rounded-lg space-y-3 bg-card">
+                  <div className="flex gap-4">
+                    <Skeleton className="w-16 h-16 rounded-2xl" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-8 w-full rounded-full" />
+                </div>
+              ))
+            ) : (
+              offers.map((offer: any) => (
+                <OfferCard
+                  key={offer.id}
+                  title={offer.title}
+                  description={offer.description}
+                  logoUrl={offer.logo_url}
+                  reward={offer.reward}
+                  category={offer.category}
+                  onStartTask={handleGetStarted}
+                />
+              ))
+            )}
           </div>
           
-          {offers.length === 6 && (
+          {!loading && offers.length === 6 && (
             <div className="text-center mt-8">
               <Button 
                 variant="outline" 
@@ -173,7 +195,6 @@ const Index = () => {
             </div>
           </div>
         </section>
-
 
         {/* Footer */}
         <footer className="bg-card border-t border-border mt-12">

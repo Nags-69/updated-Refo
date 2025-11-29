@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Phone, CheckCircle2, LogOut, Edit2, Save, X } from "lucide-react";
+import { User, Mail, Phone, CheckCircle2, LogOut, Edit2, Save, X, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import BottomNav from "@/components/BottomNav";
@@ -20,6 +20,7 @@ const Profile = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -52,7 +53,27 @@ const Profile = () => {
   };
 
   const handleUpdateUsername = async () => {
-    // ... existing username update logic ...
+    if (!user || !newUsername.trim()) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: newUsername })
+      .eq('id', user.id);
+
+    setLoading(false);
+
+    if (error) {
+      toast({ 
+        title: "Update failed", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    } else {
+      toast({ title: "Success", description: "Username updated successfully" });
+      setIsEditingUsername(false);
+      loadProfile();
+    }
   };
 
   const handleChangePassword = async () => {
@@ -73,6 +94,8 @@ const Profile = () => {
       return;
     }
 
+    setLoading(true);
+
     // First, verify the current password is correct
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email,
@@ -80,6 +103,7 @@ const Profile = () => {
     });
 
     if (signInError) {
+      setLoading(false);
       toast({ title: "Error", description: "Incorrect current password.", variant: "destructive" });
       return;
     }
@@ -88,6 +112,8 @@ const Profile = () => {
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
+
+    setLoading(false);
 
     if (updateError) {
       toast({ title: "Error updating password", description: updateError.message, variant: "destructive" });
@@ -105,6 +131,7 @@ const Profile = () => {
       title: "Logged out",
       description: "You have been successfully logged out",
     });
+    navigate('/');
   };
 
   return (
@@ -112,17 +139,77 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-heading font-bold mb-8">Profile</h1>
 
-        {/* ... existing profile card ... */}
+        {/* Profile Info Card - Restored from placeholder */}
+        <Card className="p-6 mb-6">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="relative shrink-0">
+              <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-4xl font-bold text-primary">
+                {profile?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || <User />}
+              </div>
+              {profile?.is_verified && (
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 shadow-sm">
+                  <CheckCircle2 className="h-6 w-6 text-success fill-success/10" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 text-center md:text-left space-y-2 w-full">
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                {isEditingUsername ? (
+                  <div className="flex items-center gap-2 w-full max-w-[250px]">
+                    <Input 
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="Username"
+                      className="h-8"
+                    />
+                    <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleUpdateUsername} disabled={loading}>
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setIsEditingUsername(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold">{profile?.username || "User"}</h2>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-50 hover:opacity-100" onClick={() => setIsEditingUsername(true)}>
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-2 md:gap-4 text-sm text-muted-foreground justify-center md:justify-start">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Mail className="h-4 w-4" />
+                  <span>{user?.email}</span>
+                </div>
+                {profile?.phone && (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Phone className="h-4 w-4" />
+                    <span>{profile.phone}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start pt-1">
+                <Badge variant={profile?.is_verified ? "default" : "secondary"} className={profile?.is_verified ? "bg-success hover:bg-success/90" : ""}>
+                  {profile?.is_verified ? "Verified User" : "Unverified"}
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Joined {new Date(profile?.created_at || new Date()).toLocaleDateString()}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </Card>
         
         {/* Badges */}
         <div className="mb-6">
           <BadgesDisplay />
         </div>
-
-        {/* Account Info */}
-        <Card className="p-6 mb-6">
-          {/* ... existing account info ... */}
-        </Card>
 
         {/* Change Password */}
         <Card className="p-6 mb-6">
@@ -135,6 +222,7 @@ const Profile = () => {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -144,6 +232,7 @@ const Profile = () => {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -153,9 +242,12 @@ const Profile = () => {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
-            <Button onClick={handleChangePassword}>Change Password</Button>
+            <Button onClick={handleChangePassword} disabled={loading}>
+              {loading ? "Updating..." : "Change Password"}
+            </Button>
           </div>
         </Card>
 

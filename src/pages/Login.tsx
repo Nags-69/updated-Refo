@@ -76,7 +76,7 @@ const Login = () => {
   const handleEmailAuth = async (isSignUp: boolean) => {
     try {
       setLoading(true);
-      
+
       // Validate input
       const result = emailSchema.safeParse({ email, password });
       if (!result.success) {
@@ -88,7 +88,7 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      
+
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
@@ -124,7 +124,7 @@ const Login = () => {
   const handlePhoneAuth = async () => {
     try {
       setLoading(true);
-      
+
       if (!otpSent) {
         // Validate phone number
         const phoneResult = phoneSchema.safeParse(phone);
@@ -137,7 +137,7 @@ const Login = () => {
           setLoading(false);
           return;
         }
-        
+
         const { error } = await supabase.auth.signInWithOtp({
           phone,
         });
@@ -159,7 +159,7 @@ const Login = () => {
           setLoading(false);
           return;
         }
-        
+
         const { error } = await supabase.auth.verifyOtp({
           phone,
           token: otp,
@@ -178,6 +178,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   const handleOAuthSignIn = async (provider: 'google') => {
     try {
@@ -207,6 +208,7 @@ const Login = () => {
           <h1 className="text-3xl font-heading font-bold text-primary mb-2">Welcome to Refo</h1>
           <p className="text-muted-foreground">Start earning rewards today</p>
         </div>
+
 
         <Tabs defaultValue="email" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -365,7 +367,29 @@ const Login = () => {
           Sign in with Google
         </Button>
       </Card>
+      // Inside src/pages/Login.tsx
+
+      // For Email Input
+      <Input
+        id="email"
+        type="email"
+        autoComplete="username"  // Add this
+        placeholder="your@email.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+// For Password Input
+      <Input
+        id="password"
+        type="password"
+        autoComplete="current-password" // Add this
+        placeholder="••••••••"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
     </div>
+
   );
 };
 

@@ -33,40 +33,24 @@ const Dashboard = () => {
   }, [user]);
 
   const loadDashboardData = async (userId: string) => {
-    // Load wallet
-    const { data: walletData } = await supabase
-      .from("wallet")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-    setWallet(walletData);
+    try {
+      // Fetch all data in parallel using Promise.all to reduce loading time
+      const [walletRes, tasksRes, offersRes, affiliateRes] = await Promise.all([
+        supabase.from("wallet").select("*").eq("user_id", userId).single(),
+        supabase.from("tasks").select("*, offers(*)").eq("user_id", userId).order("created_at", { ascending: false }),
+        supabase.from("offers").select("*").eq("is_public", true).eq("status", "active").order("created_at", { ascending: false }),
+        supabase.from("affiliate_links").select("unique_code").eq("user_id", userId).single()
+      ]);
 
-    // Load tasks
-    const { data: tasksData } = await supabase
-      .from("tasks")
-      .select("*, offers(*)")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    setTasks(tasksData || []);
-
-    // Load available offers
-    const { data: offersData } = await supabase
-      .from("offers")
-      .select("*")
-      .eq("is_public", true)
-      .eq("status", "active")
-      .order("created_at", { ascending: false });
-    setOffers(offersData || []);
-
-    // Load affiliate link
-    const { data: affiliateData } = await supabase
-      .from("affiliate_links")
-      .select("unique_code")
-      .eq("user_id", userId)
-      .single();
-    
-    if (affiliateData) {
-      setAffiliateLink(`${window.location.origin}/?partner=${affiliateData.unique_code}`);
+      if (walletRes.data) setWallet(walletRes.data);
+      if (tasksRes.data) setTasks(tasksRes.data || []);
+      if (offersRes.data) setOffers(offersRes.data || []);
+      
+      if (affiliateRes.data) {
+        setAffiliateLink(`${window.location.origin}/?partner=${affiliateRes.data.unique_code}`);
+      }
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
     }
   };
 

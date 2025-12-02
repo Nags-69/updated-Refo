@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -7,17 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Copy, Check, Upload, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Notifications } from "@/components/Notifications";
 import BottomNav from "@/components/BottomNav";
 import OfferCard from "@/components/OfferCard";
+import { useWallet, useTasks, useOffers, useAffiliateLink } from "@/hooks/useDashboardData";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [wallet, setWallet] = useState<any>(null);
-  const [tasks, setTasks] = useState([]);
-  const [offers, setOffers] = useState([]);
-  const [affiliateLink, setAffiliateLink] = useState("");
+  const queryClient = useQueryClient();
+  const { data: wallet } = useWallet();
+  const { data: tasks = [] } = useTasks();
+  const { data: offers = [] } = useOffers();
+  const { data: affiliateLink = "" } = useAffiliateLink();
+
   const [copied, setCopied] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<any>(null);
   const [agreedToInstructions, setAgreedToInstructions] = useState(false);
@@ -25,34 +29,6 @@ const Dashboard = () => {
   const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (user) {
-      loadDashboardData(user.id);
-    }
-  }, [user]);
-
-  const loadDashboardData = async (userId: string) => {
-    try {
-      // Fetch all data in parallel using Promise.all to reduce loading time
-      const [walletRes, tasksRes, offersRes, affiliateRes] = await Promise.all([
-        supabase.from("wallet").select("*").eq("user_id", userId).single(),
-        supabase.from("tasks").select("*, offers(*)").eq("user_id", userId).order("created_at", { ascending: false }),
-        supabase.from("offers").select("*").eq("is_public", true).eq("status", "active").order("created_at", { ascending: false }),
-        supabase.from("affiliate_links").select("unique_code").eq("user_id", userId).single()
-      ]);
-
-      if (walletRes.data) setWallet(walletRes.data);
-      if (tasksRes.data) setTasks(tasksRes.data || []);
-      if (offersRes.data) setOffers(offersRes.data || []);
-      
-      if (affiliateRes.data) {
-        setAffiliateLink(`${window.location.origin}/?partner=${affiliateRes.data.unique_code}`);
-      }
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    }
-  };
 
   const handleOfferClick = (offer: any) => {
     setSelectedOffer(offer);
@@ -64,7 +40,7 @@ const Dashboard = () => {
 
     // Store the URL before any async operations for iOS compatibility
     const redirectUrl = selectedOffer.play_store_url;
-    
+
     // Redirect immediately on iOS/Safari for better compatibility
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     if (isIOS && redirectUrl) {
@@ -153,13 +129,16 @@ const Dashboard = () => {
       description: "Redirecting to app download...",
     });
 
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["wallet"] });
+
     // Redirect for non-iOS devices
     if (!isIOS && redirectUrl) {
       window.location.href = redirectUrl;
     }
 
     setSelectedOffer(null);
-    loadDashboardData(user.id);
   };
 
   const copyToClipboard = () => {
@@ -174,12 +153,12 @@ const Dashboard = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     // Validate all files
     const validFiles = files.filter(file => {
       const isImage = file.type.startsWith('image/');
       const isUnder5MB = file.size <= 5 * 1024 * 1024;
-      
+
       if (!isImage) {
         toast({
           title: "Invalid file type",
@@ -188,7 +167,7 @@ const Dashboard = () => {
         });
         return false;
       }
-      
+
       if (!isUnder5MB) {
         toast({
           title: "File too large",
@@ -197,10 +176,10 @@ const Dashboard = () => {
         });
         return false;
       }
-      
+
       return true;
     });
-    
+
     if (validFiles.length > 0) {
       setSelectedFiles(validFiles);
     }
@@ -217,12 +196,12 @@ const Dashboard = () => {
 
     try {
       const uploadedUrls: string[] = [];
-      
+
       // Upload all selected files
       for (const file of selectedFiles) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${uploadingTaskId}-${Date.now()}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('task-proofs')
           .upload(fileName, file);
@@ -244,7 +223,7 @@ const Dashboard = () => {
         .single();
 
       // Ensure proof_url is always an array
-      const existingUrls = existingTask?.proof_url 
+      const existingUrls = existingTask?.proof_url
         ? (Array.isArray(existingTask.proof_url) ? existingTask.proof_url : [existingTask.proof_url])
         : [];
 
@@ -271,7 +250,9 @@ const Dashboard = () => {
         description: `${selectedFiles.length} screenshot(s) uploaded successfully`
       });
 
-      loadDashboardData(user.id);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
       setSelectedFiles([]);
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -298,7 +279,7 @@ const Dashboard = () => {
       verified: "bg-success",
       rejected: "bg-destructive",
     };
-    
+
     return (
       <Badge className={colors[status]}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -313,14 +294,17 @@ const Dashboard = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-heading font-bold">Dashboard</h1>
-            {wallet && (
-              <Card className="px-4 py-2 bg-primary/10">
-                <span className="text-sm text-muted-foreground">Wallet Balance</span>
-                <p className="text-xl font-heading font-bold text-primary">
-                  ₹{wallet.total_balance?.toFixed(2)}
-                </p>
-              </Card>
-            )}
+            <div className="flex items-center gap-4">
+              <Notifications />
+              {wallet && (
+                <Card className="px-4 py-2 bg-primary/10">
+                  <span className="text-sm text-muted-foreground">Wallet Balance</span>
+                  <p className="text-xl font-heading font-bold text-primary">
+                    ₹{wallet.total_balance?.toFixed(2)}
+                  </p>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
 
@@ -380,8 +364,8 @@ const Dashboard = () => {
                         onClick={() => handleUploadClick(task.id)}
                         disabled={uploadingTaskId === task.id}
                       >
-                        {uploadingTaskId === task.id ? "Uploading..." : 
-                         task.proof_url && task.proof_url.length > 0 ? "Add More" : "Upload Proof"}
+                        {uploadingTaskId === task.id ? "Uploading..." :
+                          task.proof_url && task.proof_url.length > 0 ? "Add More" : "Upload Proof"}
                       </Button>
                       {selectedFiles.length > 0 && uploadingTaskId === task.id && (
                         <div className="flex flex-col gap-2">
@@ -409,7 +393,7 @@ const Dashboard = () => {
               </Card>
             )}
           </TabsContent>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -432,7 +416,7 @@ const Dashboard = () => {
                     Coming Soon
                   </Badge>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="bg-muted/50 rounded-lg p-6 text-center space-y-2">
                     <p className="text-lg font-medium">Share & Earn Program</p>
@@ -470,7 +454,7 @@ const Dashboard = () => {
             <DialogTitle className="text-xl font-heading">{selectedOffer?.title}</DialogTitle>
             <DialogDescription>Complete the following steps to earn ₹{selectedOffer?.reward}</DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <h4 className="font-semibold mb-3">Instructions:</h4>
@@ -506,21 +490,21 @@ const Dashboard = () => {
             </div>
 
             <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-lg">
-              <Checkbox 
-                id="agree" 
+              <Checkbox
+                id="agree"
                 checked={agreedToInstructions}
                 onCheckedChange={(checked) => setAgreedToInstructions(checked as boolean)}
               />
-              <label 
-                htmlFor="agree" 
+              <label
+                htmlFor="agree"
                 className="text-sm cursor-pointer leading-tight"
               >
                 I agree with the instructions and will complete the task as specified
               </label>
             </div>
 
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               disabled={!agreedToInstructions}
               onClick={handleContinue}
             >

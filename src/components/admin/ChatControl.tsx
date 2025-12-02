@@ -68,21 +68,35 @@ const ChatControl = () => {
           },
           (payload) => {
             const newMsg = payload.new as any;
-            // Optimistically append without refetch for snappier UI
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: newMsg.id,
-                sender: newMsg.sender,
-                message: newMsg.message,
-                timestamp: newMsg.timestamp,
-              },
-            ]);
+            console.log(`ChatControl: Realtime event received for ${selectedChat.chat_id}:`, newMsg);
+
+            setMessages((prev) => {
+              // Prevent duplicates
+              if (prev.some(msg => msg.id === newMsg.id)) {
+                console.log('ChatControl: Message already in state, skipping Realtime add');
+                return prev;
+              }
+              console.log('ChatControl: Adding new message from Realtime');
+              return [
+                ...prev,
+                {
+                  id: newMsg.id,
+                  sender: newMsg.sender,
+                  message: newMsg.message,
+                  timestamp: newMsg.timestamp,
+                },
+              ];
+            });
             // Also refresh chats list (for counts/last_updated)
             fetchChats();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`ChatControl: Message subscription status for ${selectedChat.chat_id}:`, status);
+          if (status === 'SUBSCRIBED') {
+            toast({ title: "Connected to chat", duration: 2000 });
+          }
+        });
     }
 
     return () => {
@@ -107,7 +121,7 @@ const ChatControl = () => {
         const chatsWithDetails = await Promise.all(
           chatsData.map(async (chat) => {
             let userEmail = "Demo User";
-            
+
             // Try to get profile email, fallback to demo user
             try {
               const { data: profile } = await supabase
@@ -115,7 +129,7 @@ const ChatControl = () => {
                 .select("email")
                 .eq("id", chat.user_id)
                 .maybeSingle();
-              
+
               if (profile?.email) {
                 userEmail = profile.email;
               }
@@ -176,22 +190,22 @@ const ChatControl = () => {
     try {
       const { error } = await supabase
         .from("chats")
-        .update({ 
+        .update({
           active_responder: newMode
         })
         .eq("chat_id", chat.chat_id);
 
       if (error) {
-        toast({ 
-          title: "Failed to update chat", 
+        toast({
+          title: "Failed to update chat",
           description: error.message,
-          variant: "destructive" 
+          variant: "destructive"
         });
       } else {
         toast({
           title: newMode === "AI" ? "✅ AI Resumed" : "🔴 Admin Takeover",
-          description: newMode === "AI" 
-            ? "AI will respond to user messages" 
+          description: newMode === "AI"
+            ? "AI will respond to user messages"
             : "AI paused - Admin will handle responses"
         });
         fetchChats();
@@ -201,10 +215,10 @@ const ChatControl = () => {
       }
     } catch (error) {
       console.error("Error toggling responder:", error);
-      toast({ 
-        title: "Connection error", 
+      toast({
+        title: "Connection error",
         description: "Unable to update chat status",
-        variant: "destructive" 
+        variant: "destructive"
       });
     }
   };
@@ -252,7 +266,7 @@ const ChatControl = () => {
       console.log('Chat cleared successfully');
       toast({ title: "Chat cleared successfully" });
       fetchChats();
-      
+
       if (selectedChat?.chat_id === chat.chat_id) {
         setMessages([]);
       }
@@ -267,13 +281,17 @@ const ChatControl = () => {
 
     try {
       console.log('Admin sending message to chat:', selectedChat.chat_id);
-      const { error } = await supabase.from("chat_messages").insert({
-        chat_id: selectedChat.chat_id,
-        user_id: selectedChat.user_id,
-        sender: "admin",
-        message: newMessage.trim(),
-        responder_mode: "ADMIN",
-      });
+      const { data: sentMsg, error } = await supabase
+        .from("chat_messages")
+        .insert({
+          chat_id: selectedChat.chat_id,
+          user_id: selectedChat.user_id,
+          sender: "admin",
+          message: newMessage.trim(),
+          responder_mode: "ADMIN",
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Message send error:', error);
@@ -282,6 +300,26 @@ const ChatControl = () => {
       }
 
       console.log('Admin message sent successfully');
+
+      // Optimistically update UI
+      if (sentMsg) {
+        setMessages((prev) => {
+          // Check if message already exists (e.g. from Realtime)
+          if (prev.some(msg => msg.id === sentMsg.id)) {
+            console.log('ChatControl: Message already exists (from Realtime?), skipping optimistic add');
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              id: sentMsg.id,
+              sender: sentMsg.sender,
+              message: sentMsg.message,
+              timestamp: sentMsg.timestamp,
+            },
+          ];
+        });
+      }
 
       // Update chat to ADMIN_CONTROLLED mode
       await supabase
@@ -304,7 +342,7 @@ const ChatControl = () => {
         <h2 className="text-3xl font-bold text-foreground">Admin Control Center</h2>
         <p className="text-muted-foreground mt-1">Manage user conversations with Refo AI</p>
       </div>
-      
+
       <Card className="border-border shadow-sm">
         <CardHeader className="bg-muted/30">
           <CardTitle className="text-xl flex items-center gap-2">
@@ -334,7 +372,7 @@ const ChatControl = () => {
                   </TableRow>
                 ) : (
                   chats.map((chat) => (
-                    <TableRow 
+                    <TableRow
                       key={chat.chat_id}
                       className="hover:bg-muted/30 transition-colors"
                     >
@@ -364,8 +402,8 @@ const ChatControl = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => handleViewChat(chat)}
                             className="hover:bg-primary/10"
@@ -377,8 +415,8 @@ const ChatControl = () => {
                             size="sm"
                             variant={chat.active_responder === "AI" ? "destructive" : "default"}
                             onClick={() => toggleResponder(chat)}
-                            className={chat.active_responder === "AI" 
-                              ? "bg-red-600 hover:bg-red-700" 
+                            className={chat.active_responder === "AI"
+                              ? "bg-red-600 hover:bg-red-700"
                               : "bg-green-600 hover:bg-green-700"
                             }
                           >
@@ -421,8 +459,8 @@ const ChatControl = () => {
                   size="sm"
                   variant={selectedChat.active_responder === "AI" ? "destructive" : "default"}
                   onClick={() => toggleResponder(selectedChat)}
-                  className={selectedChat.active_responder === "AI" 
-                    ? "bg-red-600 hover:bg-red-700" 
+                  className={selectedChat.active_responder === "AI"
+                    ? "bg-red-600 hover:bg-red-700"
                     : "bg-green-600 hover:bg-green-700"
                   }
                 >
@@ -442,16 +480,14 @@ const ChatControl = () => {
                   messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${
-                        msg.sender === "user" ? "justify-end" : "justify-start"
-                      }`}
+                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"
+                        }`}
                     >
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
-                          msg.sender === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                            : "bg-muted text-foreground rounded-bl-sm"
-                        }`}
+                        className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${msg.sender === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-sm"
+                          : "bg-muted text-foreground rounded-bl-sm"
+                          }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           {msg.sender === "user" ? (
@@ -483,7 +519,7 @@ const ChatControl = () => {
                   className="flex-1"
                   disabled={selectedChat?.active_responder === "AI"}
                 />
-                <Button 
+                <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || selectedChat?.active_responder === "AI"}
                   className="bg-primary hover:bg-primary/90"

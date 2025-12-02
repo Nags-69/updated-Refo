@@ -36,9 +36,14 @@ const Chat = () => {
     initChat();
   }, []);
 
+  const playNotificationSound = () => {
+    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+    audio.play().catch(e => console.log("Audio play failed:", e));
+  };
+
   useEffect(() => {
     if (!chatId) return;
-    
+
     console.log('Chat.tsx: Setting up realtime for chat:', chatId);
     const channel = supabase
       .channel(`chat-messages-${chatId}`)
@@ -53,7 +58,7 @@ const Chat = () => {
         (payload) => {
           const newMsg = payload.new as any;
           console.log('Chat.tsx: Realtime message received:', newMsg);
-          
+
           // Only skip if it's our own user message that we just added to UI
           if (
             newMsg.user_id === userIdRef.current &&
@@ -65,8 +70,9 @@ const Chat = () => {
             lastUserMsgRef.current = null;
             return;
           }
-          
+
           console.log('Chat.tsx: Adding message to UI');
+          playNotificationSound();
           // Add all other messages (including admin replies)
           setMessages((prev) => [
             ...prev,
@@ -104,7 +110,7 @@ const Chat = () => {
     if (chatsList && chatsList.length > 0) {
       const current = chatsList[0];
       setChatId(current.chat_id);
-      
+
       // Load existing messages
       const { data: chatMessages } = await supabase
         .from("chat_messages")
@@ -165,9 +171,9 @@ const Chat = () => {
 
     if (chat?.active_responder === "ADMIN_CONTROLLED") {
       setLoading(false);
-      toast({ 
-        title: "Message sent", 
-        description: "An admin will respond shortly" 
+      toast({
+        title: "Message sent",
+        description: "An admin will respond shortly"
       });
       return;
     }
@@ -178,7 +184,7 @@ const Chat = () => {
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === "assistant") {
-          return prev.map((m, i) => 
+          return prev.map((m, i) =>
             i === prev.length - 1 ? { ...m, content: assistantContent } : m
           );
         }
@@ -226,11 +232,10 @@ const Chat = () => {
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <Card
-                className={`max-w-[80%] p-4 ${
-                  message.role === "user"
+                className={`max-w-[80%] p-4 ${message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-card"
-                }`}
+                  }`}
               >
                 <p className="text-sm">{message.content}</p>
               </Card>

@@ -39,16 +39,33 @@ export const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => 
     }
     try {
       setLoading(true);
+      const redirectUrl = `${window.location.origin}/update-password`;
+      console.log("Attempting password reset for:", resetEmail);
+      console.log("Redirect URL:", redirectUrl);
+
+      if (window.location.hostname === "localhost") {
+        console.warn("Running on localhost. Ensure this URL is whitelisted in Supabase Auth settings:", redirectUrl);
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: redirectUrl,
       });
-      if (error) throw error;
+
+      if (error) {
+        console.error("Supabase Reset Password Error:", error);
+        throw error;
+      }
+
       toast({
         title: "Password Reset Email Sent",
-        description: "Check your email for a link to reset your password.",
+        description: "Check your email (and Spam folder) for a link to reset your password.",
       });
-      onOpenChange(false); // Close the main modal
+      // We don't close the modal here automatically anymore to let user see the toast/state
+      // But since we are using Uncontrolled AlertDialog, we can't easily close it programmatically 
+      // without refactoring to Controlled. 
+      // For now, the user can click Cancel/Close.
     } catch (error: any) {
+      console.error("Reset password error:", error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -199,14 +216,21 @@ export const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => 
                   </div>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handlePasswordReset} disabled={loading}>
-                      Send Reset Link
-                    </AlertDialogAction>
+                    <Button
+                      onClick={async (e) => {
+                        // Prevent dialog from closing immediately
+                        e.preventDefault();
+                        await handlePasswordReset();
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? "Sending..." : "Send Reset Link"}
+                    </Button>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-            
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />

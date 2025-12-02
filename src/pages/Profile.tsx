@@ -32,13 +32,13 @@ const Profile = () => {
 
   const loadProfile = async () => {
     if (!user) return;
-    
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
-    
+
     if (data) {
       setProfile(data);
       setNewUsername(data.username || "");
@@ -54,7 +54,7 @@ const Profile = () => {
 
   const handleUpdateUsername = async () => {
     if (!user || !newUsername.trim()) return;
-    
+
     setLoading(true);
     const { error } = await supabase
       .from('profiles')
@@ -64,10 +64,10 @@ const Profile = () => {
     setLoading(false);
 
     if (error) {
-      toast({ 
-        title: "Update failed", 
-        description: error.message, 
-        variant: "destructive" 
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive"
       });
     } else {
       toast({ title: "Success", description: "Username updated successfully" });
@@ -75,6 +75,8 @@ const Profile = () => {
       loadProfile();
     }
   };
+
+  const isPasswordSet = user?.app_metadata?.providers?.includes('email');
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
@@ -85,7 +87,7 @@ const Profile = () => {
       toast({ title: "Error", description: "New password must be at least 8 characters.", variant: "destructive" });
       return;
     }
-    if (newPassword === currentPassword) {
+    if (isPasswordSet && newPassword === currentPassword) {
       toast({ title: "Error", description: "New password cannot be the same as the current one.", variant: "destructive" });
       return;
     }
@@ -96,19 +98,21 @@ const Profile = () => {
 
     setLoading(true);
 
-    // First, verify the current password is correct
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    });
+    // Only verify current password if the user actually has one set
+    if (isPasswordSet) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
 
-    if (signInError) {
-      setLoading(false);
-      toast({ title: "Error", description: "Incorrect current password.", variant: "destructive" });
-      return;
+      if (signInError) {
+        setLoading(false);
+        toast({ title: "Error", description: "Incorrect current password.", variant: "destructive" });
+        return;
+      }
     }
 
-    // If current password is correct, update to the new password
+    // Update to the new password
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -139,7 +143,7 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-heading font-bold mb-8">Profile</h1>
 
-        {/* Profile Info Card - Restored from placeholder */}
+        {/* Profile Info Card */}
         <Card className="p-6 mb-6">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative shrink-0">
@@ -157,7 +161,7 @@ const Profile = () => {
               <div className="flex items-center justify-center md:justify-start gap-2">
                 {isEditingUsername ? (
                   <div className="flex items-center gap-2 w-full max-w-[250px]">
-                    <Input 
+                    <Input
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
                       placeholder="Username"
@@ -205,7 +209,7 @@ const Profile = () => {
             </div>
           </div>
         </Card>
-        
+
         {/* Badges */}
         <div className="mb-6">
           <BadgesDisplay />
@@ -213,18 +217,22 @@ const Profile = () => {
 
         {/* Change Password */}
         <Card className="p-6 mb-6">
-          <h3 className="font-heading font-semibold text-lg mb-4">Change Password</h3>
+          <h3 className="font-heading font-semibold text-lg mb-4">
+            {isPasswordSet ? "Change Password" : "Set Password"}
+          </h3>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <Input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
+            {isPasswordSet && (
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
               <Input
@@ -246,7 +254,7 @@ const Profile = () => {
               />
             </div>
             <Button onClick={handleChangePassword} disabled={loading}>
-              {loading ? "Updating..." : "Change Password"}
+              {loading ? "Updating..." : (isPasswordSet ? "Change Password" : "Set Password")}
             </Button>
           </div>
         </Card>

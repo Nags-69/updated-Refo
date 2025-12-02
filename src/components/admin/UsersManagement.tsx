@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +108,7 @@ const UsersManagement = () => {
     }
 
     const tasks = await fetchUserTasks(userId);
-    setUsers(prev => prev.map(user => 
+    setUsers(prev => prev.map(user =>
       user.id === userId ? { ...user, tasks } : user
     ));
     setExpandedUser(userId);
@@ -122,22 +122,54 @@ const UsersManagement = () => {
 
     if (error) {
       console.error("Error updating task:", error);
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Failed to update task status",
-        variant: "destructive" 
+        variant: "destructive"
       });
       return;
     }
 
-    toast({ 
-      title: "Success", 
-      description: `Task status updated to ${newStatus}` 
+    toast({
+      title: "Success",
+      description: `Task status updated to ${newStatus}`
     });
+
+    // Send notification to user
+    let notificationMessage = "";
+    if (newStatus === "verified") {
+      // Fetch task details for the message
+      const { data: taskData } = await supabase
+        .from("tasks")
+        .select("offers(title, reward)")
+        .eq("id", taskId)
+        .single();
+
+      const offerTitle = (taskData?.offers as any)?.title || "Task";
+      const reward = (taskData?.offers as any)?.reward || 0;
+      notificationMessage = `Your task '${offerTitle}' has been verified! You earned ₹${reward}.`;
+    } else if (newStatus === "rejected") {
+      const { data: taskData } = await supabase
+        .from("tasks")
+        .select("offers(title)")
+        .eq("id", taskId)
+        .single();
+      const offerTitle = (taskData?.offers as any)?.title || "Task";
+      notificationMessage = `Your task '${offerTitle}' was rejected.`;
+    }
+
+    if (notificationMessage) {
+      await supabase.from("notifications").insert({
+        user_id: userId,
+        title: "Task Update",
+        message: notificationMessage,
+        type: newStatus === "verified" ? "success" : "error",
+      });
+    }
 
     // Refresh tasks for this user
     const tasks = await fetchUserTasks(userId);
-    setUsers(prev => prev.map(user => 
+    setUsers(prev => prev.map(user =>
       user.id === userId ? { ...user, tasks } : user
     ));
   };
@@ -165,8 +197,8 @@ const UsersManagement = () => {
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <>
-                    <TableRow key={user.id}>
+                  <Fragment key={user.id}>
+                    <TableRow>
                       <TableCell className="font-medium">
                         {user.username || "Not set"}
                       </TableCell>
@@ -227,9 +259,9 @@ const UsersManagement = () => {
                                     <div className="flex items-center gap-2">
                                       <Badge variant={
                                         task.status === "verified" ? "default" :
-                                        task.status === "rejected" ? "destructive" :
-                                        task.status === "completed" ? "secondary" :
-                                        "outline"
+                                          task.status === "rejected" ? "destructive" :
+                                            task.status === "completed" ? "secondary" :
+                                              "outline"
                                       }>
                                         {task.status}
                                       </Badge>
@@ -280,7 +312,7 @@ const UsersManagement = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

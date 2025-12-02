@@ -1,15 +1,17 @@
-import { Home, Wallet, LayoutDashboard, User, Trophy } from "lucide-react";
+import { Home, Wallet, LayoutDashboard, User, Trophy, Shield } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { AuthModal } from "./AuthModal";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { isAdmin } = useAdminCheck(user?.id);
 
   const navItems = [
     { icon: Home, label: "Home", path: "/", protected: false },
@@ -18,6 +20,11 @@ const BottomNav = () => {
     { icon: Wallet, label: "Wallet", path: "/wallet", protected: true },
     { icon: User, label: "Profile", path: "/profile", protected: true },
   ];
+
+  // Add Admin item if user is admin
+  if (isAdmin) {
+    navItems.push({ icon: Shield, label: "Admin", path: "/admin", protected: true });
+  }
 
   const handleNavClick = (item: typeof navItems[0], e: React.MouseEvent) => {
     if (item.protected && !user) {
@@ -38,7 +45,7 @@ const BottomNav = () => {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            
+
             return (
               <Link
                 key={item.path}

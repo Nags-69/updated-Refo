@@ -53,20 +53,43 @@ const Login = () => {
     }
     try {
       setLoading(true);
+      const redirectUrl = `${window.location.origin}/update-password`;
+      console.log("Attempting password reset for:", resetEmail);
+      console.log("Redirect URL:", redirectUrl);
+
+      if (window.location.hostname === "localhost") {
+        console.warn("Running on localhost. Ensure this URL is whitelisted in Supabase Auth settings:", redirectUrl);
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: redirectUrl,
       });
-      if (error) throw error;
+
+      if (error) {
+        console.error("Supabase Reset Password Error:", error);
+        throw error;
+      }
+
+      console.log("Supabase accepted the request.");
       toast({
         title: "Password Reset Email Sent",
-        description: "Check your email for a link to reset your password.",
+        description: "Check your email (and Spam folder) for a link to reset your password.",
       });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error("Reset password error:", error);
+      if (error.status === 429 || error.message?.includes("Too Many Requests")) {
+        toast({
+          title: "Too Many Requests",
+          description: "You have requested too many password resets. Please wait a while before trying again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send reset email.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -285,9 +308,15 @@ const Login = () => {
                   </div>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handlePasswordReset}>
-                      Send Reset Link
-                    </AlertDialogAction>
+                    <Button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        await handlePasswordReset();
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? "Sending..." : "Send Reset Link"}
+                    </Button>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -367,29 +396,7 @@ const Login = () => {
           Sign in with Google
         </Button>
       </Card>
-      // Inside src/pages/Login.tsx
-
-      // For Email Input
-      <Input
-        id="email"
-        type="email"
-        autoComplete="username"  // Add this
-        placeholder="your@email.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-
-// For Password Input
-      <Input
-        id="password"
-        type="password"
-        autoComplete="current-password" // Add this
-        placeholder="••••••••"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
     </div>
-
   );
 };
 

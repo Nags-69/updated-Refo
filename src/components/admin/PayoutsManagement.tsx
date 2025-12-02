@@ -210,7 +210,7 @@ const PayoutsManagement = () => {
 
   const handleBalanceAdjustment = async () => {
     const amount = parseFloat(adjustmentAmount);
-    
+
     if (!amount || amount <= 0) {
       toast({
         title: "Invalid amount",
@@ -288,9 +288,18 @@ const PayoutsManagement = () => {
 
       toast({
         title: "Balance adjusted successfully",
-        description: `${adjustmentDialog.type === "add" ? "Added" : "Reduced"} ₹${amount} ${
-          adjustmentDialog.type === "add" ? "to" : "from"
-        } ${adjustmentDialog.userEmail}'s wallet`,
+        description: `${adjustmentDialog.type === "add" ? "Added" : "Reduced"} ₹${amount} ${adjustmentDialog.type === "add" ? "to" : "from"
+          } ${adjustmentDialog.userEmail}'s wallet`,
+      });
+
+      // Send notification
+      await supabase.from("notifications").insert({
+        user_id: adjustmentDialog.userId,
+        title: adjustmentDialog.type === "add" ? "Bonus Received" : "Balance Deduction",
+        message: adjustmentDialog.type === "add"
+          ? `You received a bonus of ₹${amount}: ${adjustmentReason}`
+          : `Balance deduction of ₹${amount}: ${adjustmentReason}`,
+        type: adjustmentDialog.type === "add" ? "success" : "warning",
       });
 
       // Reset form and close dialog
@@ -311,7 +320,7 @@ const PayoutsManagement = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold">Payouts Management</h2>
-      
+
       {/* Payout Requests */}
       <Card>
         <CardHeader>
@@ -338,13 +347,12 @@ const PayoutsManagement = () => {
                     <TableCell>{request.payout_method}</TableCell>
                     <TableCell>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          request.status === "pending"
+                        className={`px-2 py-1 rounded-full text-xs ${request.status === "pending"
                             ? "bg-yellow-500/20 text-yellow-500"
                             : request.status === "completed"
-                            ? "bg-green-500/20 text-green-500"
-                            : "bg-red-500/20 text-red-500"
-                        }`}
+                              ? "bg-green-500/20 text-green-500"
+                              : "bg-red-500/20 text-red-500"
+                          }`}
                       >
                         {request.status}
                       </span>
@@ -413,7 +421,7 @@ const PayoutsManagement = () => {
               <TableBody>
                 {payouts.map((payout) => (
                   <TableRow key={payout.user_id}>
-                  <TableCell className="font-medium">{payout.user_email}</TableCell>
+                    <TableCell className="font-medium">{payout.user_email}</TableCell>
                     <TableCell>₹{payout.total_earnings.toFixed(2)}</TableCell>
                     <TableCell>₹{payout.pending_balance.toFixed(2)}</TableCell>
                     <TableCell>₹{payout.completed_payouts.toFixed(2)}</TableCell>
@@ -473,12 +481,12 @@ const PayoutsManagement = () => {
               {adjustmentDialog.type === "add" ? "Add Bonus" : "Reduce Balance"}
             </DialogTitle>
             <DialogDescription>
-              {adjustmentDialog.type === "add" 
-                ? `Add bonus to ${adjustmentDialog.userEmail}'s wallet` 
+              {adjustmentDialog.type === "add"
+                ? `Add bonus to ${adjustmentDialog.userEmail}'s wallet`
                 : `Reduce balance from ${adjustmentDialog.userEmail}'s wallet`}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <Label htmlFor="amount">Amount (₹)</Label>
@@ -492,7 +500,7 @@ const PayoutsManagement = () => {
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="reason">Reason</Label>
               <Input
@@ -535,24 +543,23 @@ const PayoutsManagement = () => {
               User: {selectedPayoutDetails?.user_email}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-2 p-4 bg-muted/50 rounded-lg">
               <div className="text-sm text-muted-foreground">Amount:</div>
               <div className="text-sm font-bold">₹{selectedPayoutDetails?.amount}</div>
-              
+
               <div className="text-sm text-muted-foreground">Method:</div>
               <div className="text-sm font-medium">{selectedPayoutDetails?.payout_method}</div>
-              
+
               <div className="text-sm text-muted-foreground">Status:</div>
               <div className="text-sm">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  selectedPayoutDetails?.status === "pending"
+                <span className={`px-2 py-1 rounded-full text-xs ${selectedPayoutDetails?.status === "pending"
                     ? "bg-yellow-500/20 text-yellow-500"
                     : selectedPayoutDetails?.status === "completed"
-                    ? "bg-green-500/20 text-green-500"
-                    : "bg-red-500/20 text-red-500"
-                }`}>
+                      ? "bg-green-500/20 text-green-500"
+                      : "bg-red-500/20 text-red-500"
+                  }`}>
                   {selectedPayoutDetails?.status}
                 </span>
               </div>

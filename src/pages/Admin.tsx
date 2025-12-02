@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { LayoutDashboard, Package, Users, CreditCard, MessageSquare, Settings, Link2, UserCog } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { LayoutDashboard, Package, Users, CreditCard, MessageSquare, Settings, Link2, UserCog, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import Overview from "@/components/admin/Overview";
@@ -10,8 +10,11 @@ import ChatControl from "@/components/admin/ChatControl";
 import AdminSettings from "@/components/admin/AdminSettings";
 import AffiliatesManagement from "@/components/admin/AffiliatesManagement";
 import UsersManagement from "@/components/admin/UsersManagement";
+import NotificationsManagement from "@/components/admin/NotificationsManagement";
+import DataImport from "@/components/admin/DataImport";
+import { Bell } from "lucide-react";
 
-type AdminSection = "overview" | "offers" | "referrals" | "payouts" | "chat" | "affiliates" | "users" | "settings";
+type AdminSection = "overview" | "offers" | "referrals" | "payouts" | "chat" | "affiliates" | "users" | "settings" | "notifications" | "import";
 
 const Admin = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -19,13 +22,13 @@ const Admin = () => {
 
   useEffect(() => {
     let mounted = true;
-    
+
     const loadPendingCount = async () => {
       if (mounted) {
         await fetchPendingCount();
       }
     };
-    
+
     loadPendingCount();
 
     // Set up real-time subscription for task updates
@@ -40,7 +43,7 @@ const Admin = () => {
         },
         () => {
           if (mounted) {
-            fetchPendingCount();
+            handleRealtimeUpdate();
           }
         }
       )
@@ -63,6 +66,18 @@ const Admin = () => {
     }
   };
 
+  // Debounce the fetch function to prevent UI freezing on high traffic
+  const debouncedFetch = useRef<NodeJS.Timeout | null>(null);
+
+  const handleRealtimeUpdate = () => {
+    if (debouncedFetch.current) {
+      clearTimeout(debouncedFetch.current);
+    }
+    debouncedFetch.current = setTimeout(() => {
+      fetchPendingCount();
+    }, 2000);
+  };
+
   const sections = [
     { id: "overview" as AdminSection, label: "Overview", icon: LayoutDashboard },
     { id: "users" as AdminSection, label: "Users", icon: UserCog },
@@ -71,6 +86,8 @@ const Admin = () => {
     { id: "payouts" as AdminSection, label: "Payouts", icon: CreditCard },
     { id: "affiliates" as AdminSection, label: "Affiliates", icon: Link2 },
     { id: "chat" as AdminSection, label: "Chat Control", icon: MessageSquare },
+    { id: "notifications" as AdminSection, label: "Notifications", icon: Bell },
+    { id: "import" as AdminSection, label: "Data Import", icon: Database },
     { id: "settings" as AdminSection, label: "Settings", icon: Settings },
   ];
 
@@ -92,6 +109,10 @@ const Admin = () => {
         return <ChatControl />;
       case "settings":
         return <AdminSettings />;
+      case "notifications":
+        return <NotificationsManagement />;
+      case "import":
+        return <DataImport />;
       default:
         return <Overview />;
     }
@@ -106,11 +127,10 @@ const Admin = () => {
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`flex items-center gap-2 px-4 py-3 whitespace-nowrap transition-colors ${
-                activeSection === section.id
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground"
-              }`}
+              className={`flex items-center gap-2 px-4 py-3 whitespace-nowrap transition-colors ${activeSection === section.id
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground"
+                }`}
             >
               <section.icon className="h-4 w-4" />
               <span className="text-sm font-medium">{section.label}</span>
@@ -136,11 +156,10 @@ const Admin = () => {
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  activeSection === section.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground hover:bg-muted"
-                }`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${activeSection === section.id
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground hover:bg-muted"
+                  }`}
               >
                 <section.icon className="h-5 w-5" />
                 <span className="font-medium">{section.label}</span>
@@ -151,6 +170,16 @@ const Admin = () => {
                 )}
               </button>
             ))}
+
+            <div className="pt-4 mt-4 border-t border-border">
+              <a
+                href="/dashboard"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <LayoutDashboard className="h-5 w-5" />
+                <span className="font-medium">Exit to Dashboard</span>
+              </a>
+            </div>
           </nav>
         </aside>
 

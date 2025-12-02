@@ -7,119 +7,42 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { streamAIChat } from "@/utils/aiChat";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { useChat, Message } from "@/hooks/useChat";
+import { useAuth } from "@/contexts/AuthContext";
 
 const RefoAI = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [chatId, setChatId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { chatId, messages: initialMessages, queryClient } = useChat(isOpen);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+
+  // Dragging refs
   const buttonRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const position = useRef({ x: 0, y: 0 });
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Initialize or fetch existing chat
+  // Sync local messages with fetched messages
   useEffect(() => {
-    const initializeChat = async () => {
-      try {
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          console.log("User not authenticated");
-          return;
-        }
-        
-        setUserId(user.id);
-
-        // Check if user has existing chat
-        const { data: existingChat, error: fetchError } = await supabase
-          .from("chats")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("last_updated", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (fetchError && fetchError.code !== "PGRST116") {
-          console.error("Error fetching chat:", fetchError);
-          return;
-        }
-
-        if (existingChat) {
-          setChatId(existingChat.chat_id);
-
-          // Fetch messages for this chat
-          const { data: chatMessages, error: messagesError } = await supabase
-            .from("chat_messages")
-            .select("*")
-            .eq("chat_id", existingChat.chat_id)
-            .order("timestamp", { ascending: true });
-
-          if (!messagesError && chatMessages) {
-            setMessages(
-              chatMessages.map((msg) => ({
-                role: msg.sender === "user" ? "user" : "assistant",
-                content: msg.message,
-              }))
-            );
-          }
-        } else {
-          // Create new chat
-          const { data: newChat, error: createError } = await supabase
-            .from("chats")
-            .insert({ user_id: user.id, active_responder: "AI" })
-            .select()
-            .single();
-
-          if (!createError && newChat) {
-            setChatId(newChat.chat_id);
-
-            // Add welcome message
-            const welcomeMsg = {
-              chat_id: newChat.chat_id,
-              user_id: user.id,
-              sender: "assistant",
-              message:
-                "Hi! I'm Refo AI. I can help you with offers, payouts, verification, and affiliate questions. How can I assist you today?",
-              responder_mode: "AI",
-            };
-
-            await supabase.from("chat_messages").insert(welcomeMsg);
-
-            setMessages([
-              {
-                role: "assistant",
-                content: welcomeMsg.message,
-              },
-            ]);
-          }
-        }
-      } catch (error) {
-        console.error("Error initializing chat:", error);
-      }
-    };
-
-    if (isOpen) {
-      initializeChat();
+    if (initialMessages.length > 0) {
+      setLocalMessages(initialMessages);
     }
-  }, [isOpen]);
+  }, [initialMessages]);
 
-  // Realtime subscription for new messages
+  const playNotificationSound = () => {
+    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+    audio.play().catch(e => console.log("Audio play failed:", e));
+  };
+
+  // Realtime subscription
   useEffect(() => {
     if (!chatId || !isOpen) return;
-    
-    let mounted = true;
-    
-    console.log('RefoAI: Setting up realtime for chat:', chatId);
+
     const channel = supabase
       .channel(`refo-ai-messages-${chatId}`)
       .on(
@@ -132,119 +55,103 @@ const RefoAI = () => {
         },
         (payload) => {
           const newMsg = payload.new as any;
-          console.log('RefoAI: Received message:', newMsg);
-          
-          // Only add messages from admin in ADMIN_CONTROLLED mode
-          // AI messages are already added during streaming, user messages are added optimistically
-          if (mounted && newMsg.sender === 'admin' && newMsg.responder_mode === 'ADMIN') {
-            console.log('RefoAI: Adding admin message to UI');
-            setMessages((prev) => [
+          // Only add admin messages via realtime (user/AI handled locally/optimistically)
+          if (newMsg.sender === 'admin') {
+            playNotificationSound();
+            setLocalMessages((prev) => [
               ...prev,
               { role: 'assistant', content: newMsg.message },
             ]);
-          } else {
-            console.log('RefoAI: Skipping message (already in UI)');
           }
         }
       )
-      .subscribe((status) => {
-        console.log('RefoAI: Subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      mounted = false;
-      console.log('RefoAI: Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [chatId, isOpen]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [localMessages, isTyping]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Optimized Dragging Logic (No Re-renders)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isOpen) return;
-    setIsDragging(true);
-    setDragStart({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    });
+    isDragging.current = true;
+    dragStart.current = {
+      x: e.clientX - position.current.x,
+      y: e.clientY - position.current.y,
+    };
+
+    // Add global listeners
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      });
-    }
+    if (!isDragging.current || !buttonRef.current) return;
+
+    e.preventDefault();
+    const newX = e.clientX - dragStart.current.x;
+    const newY = e.clientY - dragStart.current.y;
+
+    position.current = { x: newX, y: newY };
+    buttonRef.current.style.transform = `translate(${newX}px, ${newY}px)`;
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    isDragging.current = false;
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
   };
 
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isDragging]);
-
+  // Touch support
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isOpen) return;
     const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({
-      x: touch.clientX - position.x,
-      y: touch.clientY - position.y,
-    });
+    isDragging.current = true;
+    dragStart.current = {
+      x: touch.clientX - position.current.x,
+      y: touch.clientY - position.current.y,
+    };
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    document.addEventListener("touchend", handleTouchEnd);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (isDragging) {
-      const touch = e.touches[0];
-      setPosition({
-        x: touch.clientX - dragStart.x,
-        y: touch.clientY - dragStart.y,
-      });
-    }
+    if (!isDragging.current || !buttonRef.current) return;
+    const touch = e.touches[0];
+    e.preventDefault(); // Prevent scrolling while dragging
+
+    const newX = touch.clientX - dragStart.current.x;
+    const newY = touch.clientY - dragStart.current.y;
+
+    position.current = { x: newX, y: newY };
+    buttonRef.current.style.transform = `translate(${newX}px, ${newY}px)`;
   };
 
   const handleTouchEnd = () => {
-    setIsDragging(false);
+    isDragging.current = false;
+    document.removeEventListener("touchmove", handleTouchMove);
+    document.removeEventListener("touchend", handleTouchEnd);
   };
 
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener("touchmove", handleTouchMove);
-      document.addEventListener("touchend", handleTouchEnd);
-      return () => {
-        document.removeEventListener("touchmove", handleTouchMove);
-        document.removeEventListener("touchend", handleTouchEnd);
-      };
-    }
-  }, [isDragging]);
-
   const sendMessage = async () => {
-    if (!input.trim() || !chatId || !userId) return;
+    if (!input.trim() || !chatId || !user) return;
 
     const userMessageText = input.trim();
-
     const userMessage: Message = { role: "user", content: userMessageText };
-    setMessages((prev) => [...prev, userMessage]);
+
+    setLocalMessages((prev) => [...prev, userMessage]);
     setInput("");
 
     try {
-      // Check current active responder
       const { data: chat } = await supabase
         .from("chats")
         .select("active_responder")
@@ -252,33 +159,25 @@ const RefoAI = () => {
         .single();
 
       const activeResponder = chat?.active_responder || "AI";
-      // Map active_responder to valid responder_mode values
       const responderMode = activeResponder === "ADMIN_CONTROLLED" ? "ADMIN" : "AI";
 
-      // Save user message to database
       await supabase.from("chat_messages").insert({
         chat_id: chatId,
-        user_id: userId,
+        user_id: user.id,
         sender: "user",
         message: userMessageText,
         responder_mode: responderMode,
       });
 
-      // Only generate AI response if not in ADMIN_CONTROLLED mode
       if (activeResponder === "AI") {
         setIsTyping(true);
-
         let assistantContent = "";
-        const conversationMessages = messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
 
         await streamAIChat({
-          messages: [...conversationMessages, { role: "user", content: userMessageText }],
+          messages: [...localMessages, userMessage],
           onDelta: (chunk) => {
             assistantContent += chunk;
-            setMessages((prev) => {
+            setLocalMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === "assistant") {
                 return prev.map((m, i) =>
@@ -290,22 +189,15 @@ const RefoAI = () => {
           },
           onDone: async () => {
             setIsTyping(false);
-            try {
-              await supabase.from("chat_messages").insert({
-                chat_id: chatId,
-                user_id: userId,
-                sender: "assistant",
-                message: assistantContent,
-                responder_mode: "AI",
-              });
-
-              await supabase
-                .from("chats")
-                .update({ last_updated: new Date().toISOString() })
-                .eq("chat_id", chatId);
-            } catch (error) {
-              console.error("Error saving assistant message:", error);
-            }
+            await supabase.from("chat_messages").insert({
+              chat_id: chatId,
+              user_id: user.id,
+              sender: "assistant",
+              message: assistantContent,
+              responder_mode: "AI",
+            });
+            // Invalidate query to ensure sync
+            queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
           },
           onError: (error) => {
             setIsTyping(false);
@@ -328,24 +220,23 @@ const RefoAI = () => {
     }
   };
 
+  if (!user) return null;
+
   return (
     <>
       {/* Floating Button */}
       <div
         ref={buttonRef}
-        className={cn(
-          "fixed z-50 cursor-pointer transition-transform duration-150",
-          isDragging ? "scale-95" : "hover:scale-105"
-        )}
+        className="fixed z-50 cursor-pointer transition-transform duration-75 hover:scale-105 active:scale-95"
         style={{
-          bottom: position.y === 0 ? "6rem" : "auto",
-          right: position.x === 0 ? "1.5rem" : "auto",
-          transform:
-            position.x !== 0 || position.y !== 0
-              ? `translate(${position.x}px, ${position.y}px)`
-              : "none",
+          bottom: "6rem",
+          right: "1.5rem",
+          touchAction: "none" // Important for touch dragging
         }}
-        onClick={() => !isDragging && setIsOpen(true)}
+        onClick={() => {
+          // Only open if not dragging (simple check: if we moved less than 5px)
+          if (!isDragging.current) setIsOpen(true);
+        }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
       >
@@ -358,11 +249,11 @@ const RefoAI = () => {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:justify-end md:pr-6 md:pb-6 p-4">
           <div
-            className="fixed inset-0 bg-black/20"
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
           <Card
-            className="relative w-full max-w-md bg-background shadow-2xl rounded-3xl overflow-hidden transition-all duration-200"
+            className="relative w-full max-w-md bg-background shadow-2xl rounded-3xl overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-300"
             style={{ maxHeight: "60vh" }}
           >
             {/* Header */}
@@ -393,7 +284,7 @@ const RefoAI = () => {
               className="overflow-y-auto p-4 space-y-3"
               style={{ height: "calc(60vh - 140px)" }}
             >
-              {messages.map((message, index) => (
+              {localMessages.map((message, index) => (
                 <div
                   key={index}
                   className={cn(
@@ -403,7 +294,7 @@ const RefoAI = () => {
                 >
                   <div
                     className={cn(
-                      "max-w-[80%] px-4 py-2 rounded-2xl text-sm transition-all duration-150",
+                      "max-w-[80%] px-4 py-2 rounded-2xl text-sm shadow-sm",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-secondary-foreground"

@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // 1. Check if we are waiting for a Google/MagicLink redirect
     // This prevents the app from kicking you out while it processes the token
-    const isHandlingRedirect = 
-      window.location.hash.includes('access_token') || 
+    const isHandlingRedirect =
+      window.location.hash.includes('access_token') ||
       window.location.search.includes('code');
 
     // 2. Listen for auth changes (Sign In, Sign Out, Auto-Refresh)
@@ -36,7 +36,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // 3. Initial Session Check
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+      if (error) {
+        console.error("[AuthContext] Error getting session:", error);
+        // If there's an error (like invalid refresh token), we should clear the session
+        // and let the user sign in again.
+        setIsLoading(false);
+        return;
+      }
+
       if (currentSession) {
         // If we have a saved session, restore it immediately
         setSession(currentSession);
@@ -48,6 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // we stay in "Loading..." state until onAuthStateChange fires above.
         setIsLoading(false);
       }
+    }).catch((err) => {
+      console.error("[AuthContext] Unexpected error during session check:", err);
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();

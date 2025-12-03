@@ -129,48 +129,10 @@ const PayoutsManagement = () => {
     if (!request) return;
 
     if (action === "approve") {
-      // Get current wallet balance
-      const { data: walletData } = await supabase
-        .from("wallet")
-        .select("total_balance")
-        .eq("user_id", request.user_id)
-        .single();
-
-      if (!walletData) {
-        toast({ title: "Error: User wallet not found", variant: "destructive" });
-        return;
-      }
-
-      if (Number(walletData.total_balance) < Number(request.amount)) {
-        toast({ title: "Error: Insufficient balance", variant: "destructive" });
-        return;
-      }
-
-      // Create withdrawal transaction
-      const { error: transactionError } = await supabase.from("transactions").insert({
-        user_id: request.user_id,
-        type: "withdrawal",
-        amount: request.amount,
-        status: "completed",
-        description: `Withdrawal via ${request.payout_method}`,
-      });
-
-      if (transactionError) {
-        toast({ title: "Error creating transaction", variant: "destructive" });
-        return;
-      }
-
-      // Deduct from wallet
-      const newBalance = Number(walletData.total_balance) - Number(request.amount);
-      const { error: walletError } = await supabase
-        .from("wallet")
-        .update({ total_balance: Math.max(0, newBalance) })
-        .eq("user_id", request.user_id);
-
-      if (walletError) {
-        toast({ title: "Error updating wallet", variant: "destructive" });
-        return;
-      }
+      // Note: We do NOT deduct from wallet here because the user's balance 
+      // should have already been deducted (or moved to pending) when they requested the payout.
+      // If we deduct again, it would be a double charge.
+      // We assume the request is valid if it exists.
 
       // Update payout request status
       const { error: updateError } = await supabase
@@ -348,10 +310,10 @@ const PayoutsManagement = () => {
                     <TableCell>
                       <span
                         className={`px-2 py-1 rounded-full text-xs ${request.status === "pending"
-                            ? "bg-yellow-500/20 text-yellow-500"
-                            : request.status === "completed"
-                              ? "bg-green-500/20 text-green-500"
-                              : "bg-red-500/20 text-red-500"
+                          ? "bg-yellow-500/20 text-yellow-500"
+                          : request.status === "completed"
+                            ? "bg-green-500/20 text-green-500"
+                            : "bg-red-500/20 text-red-500"
                           }`}
                       >
                         {request.status}
@@ -555,17 +517,17 @@ const PayoutsManagement = () => {
               <div className="text-sm text-muted-foreground">Status:</div>
               <div className="text-sm">
                 <span className={`px-2 py-1 rounded-full text-xs ${selectedPayoutDetails?.status === "pending"
-                    ? "bg-yellow-500/20 text-yellow-500"
-                    : selectedPayoutDetails?.status === "completed"
-                      ? "bg-green-500/20 text-green-500"
-                      : "bg-red-500/20 text-red-500"
+                  ? "bg-yellow-500/20 text-yellow-500"
+                  : selectedPayoutDetails?.status === "completed"
+                    ? "bg-green-500/20 text-green-500"
+                    : "bg-red-500/20 text-red-500"
                   }`}>
                   {selectedPayoutDetails?.status}
                 </span>
               </div>
             </div>
 
-            {selectedPayoutDetails?.payout_method === "UPI" ? (
+            {selectedPayoutDetails?.payout_method?.toLowerCase() === "upi" ? (
               <div className="p-4 border rounded-lg bg-background">
                 <h4 className="font-semibold mb-2">UPI Details</h4>
                 <div className="space-y-2">

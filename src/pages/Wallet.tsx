@@ -61,11 +61,11 @@ const Wallet = () => {
 
     // Set up realtime subscription
     const channel = supabase
-      .channel('payout-updates')
+      .channel('wallet-updates')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'payout_requests',
           filter: `user_id=eq.${user.id}`
@@ -78,7 +78,30 @@ const Wallet = () => {
               description: `₹${updatedRequest.amount} has been paid to your account`,
             });
           }
-          // Reload data regardless of status to keep UI in sync
+          loadWalletData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadWalletData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallet',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
           loadWalletData();
         }
       )
@@ -194,13 +217,13 @@ const Wallet = () => {
       type: "withdrawal",
       description: `Withdrawal via ${p.payout_method}`,
     }))];
-    
+
     if (type === "earnings") {
-      return transactions.filter((t: any) => 
+      return transactions.filter((t: any) =>
         t.type === "earning" || t.type === "bonus"
       );
     }
-    
+
     if (type === "withdrawals") {
       return [...payoutRequests.map(p => ({
         ...p,
@@ -208,7 +231,7 @@ const Wallet = () => {
         description: `Withdrawal via ${p.payout_method}`,
       })), ...transactions.filter((t: any) => t.type === "deduction")];
     }
-    
+
     return [];
   };
 
@@ -275,7 +298,7 @@ const Wallet = () => {
         {showWithdrawalForm && (
           <Card className="p-6 mb-8">
             <h3 className="text-xl font-semibold mb-4">Request Withdrawal</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">Choose Payout Method</Label>
@@ -374,7 +397,7 @@ const Wallet = () => {
         {/* Transaction History */}
         <div>
           <h2 className="text-xl font-heading font-semibold mb-4">Transaction History</h2>
-          
+
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
@@ -389,10 +412,9 @@ const Wallet = () => {
                     <Card key={item.id} className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-2xl ${
-                            item.type === "earning" || item.type === "bonus" ? "bg-success/20" : 
-                            item.type === "withdrawal" || item.type === "deduction" ? "bg-primary/20" : "bg-destructive/20"
-                          }`}>
+                          <div className={`p-2 rounded-2xl ${item.type === "earning" || item.type === "bonus" ? "bg-success/20" :
+                              item.type === "withdrawal" || item.type === "deduction" ? "bg-primary/20" : "bg-destructive/20"
+                            }`}>
                             {getStatusIcon(item.status)}
                           </div>
                           <div>
@@ -403,9 +425,8 @@ const Wallet = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`font-heading font-bold ${
-                            item.type === "earning" || item.type === "bonus" ? "text-success" : "text-primary"
-                          }`}>
+                          <p className={`font-heading font-bold ${item.type === "earning" || item.type === "bonus" ? "text-success" : "text-primary"
+                            }`}>
                             {item.type === "earning" || item.type === "bonus" ? "+" : "-"}₹{item.amount}
                           </p>
                           <div className="flex items-center gap-1">

@@ -6,11 +6,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Phone, CheckCircle2, LogOut, Edit2, Save, X, Calendar } from "lucide-react";
+import { User, Mail, Phone, CheckCircle2, LogOut, Edit2, Save, X, Calendar, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import BottomNav from "@/components/BottomNav";
 import BadgesDisplay from "@/components/BadgesDisplay";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { compressImage } from "@/utils/imageCompression";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -21,6 +30,9 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [presets, setPresets] = useState<string[]>([]);
+  const [isPresetOpen, setIsPresetOpen] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -29,6 +41,12 @@ const Profile = () => {
       loadProfile();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isPresetOpen) {
+      loadPresets();
+    }
+  }, [isPresetOpen]);
 
   const loadProfile = async () => {
     if (!user) return;
@@ -49,6 +67,23 @@ const Profile = () => {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const loadPresets = async () => {
+    const { data, error } = await supabase.storage.from('avatars').list('presets');
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load avatars", variant: "destructive" });
+      return;
+    }
+
+    if (data) {
+      const urls = data.map(file => {
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`presets/${file.name}`);
+        return publicUrl;
+      });
+      setPresets(urls);
     }
   };
 
@@ -129,6 +164,100 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!event.target.files || event.target.files.length === 0) {
+        return;
+      }
+      setLoading(true);
+      const originalFile = event.target.files[0];
+
+      // Compress the image before uploading
+      let file = originalFile;
+      try {
+        file = await compressImage(originalFile);
+      } catch (compressionError) {
+        console.warn("Image compression failed, using original file:", compressionError);
+        // Fallback to original file if compression fails
+      }
+
+      const fileExt = file.name.split('.').pop();
+      // Use timestamp for safer filename to avoid 400 Bad Request
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user?.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setProfile({ ...profile, avatar_url: publicUrl });
+      toast({
+        title: "Success",
+        description: "Avatar updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error uploading avatar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setLoading(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: null })
+      .eq('id', user?.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setProfile({ ...profile, avatar_url: null });
+      toast({ title: "Success", description: "Avatar removed" });
+    }
+    setLoading(false);
+  };
+
+  const handlePresetSelect = async (url: string) => {
+    setLoading(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url })
+      .eq('id', user?.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setProfile({ ...profile, avatar_url: url });
+      toast({ title: "Success", description: "Avatar updated" });
+      setIsPresetOpen(false);
+    }
+    setLoading(false);
+  };
+
   const handleLogout = async () => {
     await signOut();
     toast({
@@ -146,13 +275,77 @@ const Profile = () => {
         {/* Profile Info Card */}
         <Card className="p-6 mb-6">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative shrink-0">
-              <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-4xl font-bold text-primary">
-                {profile?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || <User />}
+            <div className="relative shrink-0 group">
+              <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-4xl font-bold text-primary overflow-hidden border-2 border-transparent group-hover:border-primary transition-all">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                ) : (
+                  profile?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || <User />
+                )}
               </div>
+
+              {/* Avatar Actions */}
+              <div className="absolute -bottom-2 -right-2 flex gap-1">
+                {profile?.avatar_url && (
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-8 w-8 rounded-full shadow-md"
+                    onClick={handleRemoveAvatar}
+                    disabled={loading}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+
+                <Dialog open={isPresetOpen} onOpenChange={setIsPresetOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md">
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Choose Avatar</DialogTitle>
+                      <DialogDescription>
+                        Select one of our preset avatars to use as your profile picture.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                      {presets.map((url, index) => (
+                        <button
+                          key={index}
+                          className="relative aspect-square rounded-full overflow-hidden border-2 border-transparent hover:border-primary transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+                          onClick={() => handlePresetSelect(url)}
+                          disabled={loading}
+                        >
+                          <img src={url} alt={`Preset ${index + 1}`} className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <label
+                  htmlFor="avatar-upload"
+                  className="flex items-center justify-center h-8 w-8 bg-primary text-primary-foreground rounded-full cursor-pointer shadow-md hover:bg-primary/90 transition-colors"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </label>
+              </div>
+
+              <input
+                type="file"
+                id="avatar-upload"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+                disabled={loading}
+              />
+
               {profile?.is_verified && (
-                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 shadow-sm">
-                  <CheckCircle2 className="h-6 w-6 text-success fill-success/10" />
+                <div className="absolute top-0 right-0 bg-background rounded-full p-1 shadow-sm z-10">
+                  <CheckCircle2 className="h-5 w-5 text-success fill-success/10" />
                 </div>
               )}
             </div>

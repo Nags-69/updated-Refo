@@ -16,6 +16,7 @@ interface LeaderboardEntry {
   current_streak: number;
   badges_count: number;
   rank: number;
+  avatar_url?: string;
 }
 
 const Leaderboard = () => {
@@ -32,6 +33,7 @@ const Leaderboard = () => {
       .channel('leaderboard-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet' }, () => loadLeaderboard())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadLeaderboard())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => loadLeaderboard())
       .subscribe();
 
     return () => {
@@ -71,7 +73,7 @@ const Leaderboard = () => {
   const getMaskedName = (name: string, userId: string) => {
     // 1. If it's the current user, show full name
     if (userId === currentUserId) return name;
-    
+
     // 2. Handle empty or very short names
     if (!name) return "Unknown";
     if (name.length <= 5) {
@@ -85,7 +87,7 @@ const Leaderboard = () => {
     const firstTwo = name.slice(0, 2);
     const lastThree = name.slice(-3);
     const middleStars = "*".repeat(name.length - 5);
-    
+
     return `${firstTwo}${middleStars}${lastThree}`;
   };
 
@@ -128,9 +130,13 @@ const Leaderboard = () => {
                     <Medal className="h-8 w-8 md:h-12 md:w-12 text-gray-400" />
                   </div>
                   <Avatar className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-2 md:mb-3 ring-4 ring-muted">
-                    <AvatarFallback className="text-sm md:text-lg">
-                      {leaderboard[1].username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    {leaderboard[1].avatar_url ? (
+                      <img src={leaderboard[1].avatar_url} alt={leaderboard[1].username} className="h-full w-full object-cover" />
+                    ) : (
+                      <AvatarFallback className="text-sm md:text-lg">
+                        {(leaderboard[1].username || "??").substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <h3 className="font-bold text-sm md:text-base truncate max-w-[100px] md:max-w-full mx-auto">
                     {getMaskedName(leaderboard[1].username, leaderboard[1].user_id)}
@@ -146,9 +152,13 @@ const Leaderboard = () => {
                     <Trophy className="h-10 w-10 md:h-14 md:w-14 text-yellow-500" />
                   </div>
                   <Avatar className="h-16 w-16 md:h-20 md:w-20 mx-auto mb-2 md:mb-3 ring-4 ring-primary">
-                    <AvatarFallback className="text-lg md:text-xl bg-primary text-primary-foreground">
-                      {leaderboard[0].username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    {leaderboard[0].avatar_url ? (
+                      <img src={leaderboard[0].avatar_url} alt={leaderboard[0].username} className="h-full w-full object-cover" />
+                    ) : (
+                      <AvatarFallback className="text-lg md:text-xl bg-primary text-primary-foreground">
+                        {(leaderboard[0].username || "??").substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <h3 className="font-bold text-sm md:text-base truncate max-w-[100px] md:max-w-full mx-auto">
                     {getMaskedName(leaderboard[0].username, leaderboard[0].user_id)}
@@ -167,9 +177,13 @@ const Leaderboard = () => {
                     <Medal className="h-8 w-8 md:h-12 md:w-12 text-amber-600" />
                   </div>
                   <Avatar className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-2 md:mb-3 ring-4 ring-muted">
-                    <AvatarFallback className="text-sm md:text-lg">
-                      {leaderboard[2].username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    {leaderboard[2].avatar_url ? (
+                      <img src={leaderboard[2].avatar_url} alt={leaderboard[2].username} className="h-full w-full object-cover" />
+                    ) : (
+                      <AvatarFallback className="text-sm md:text-lg">
+                        {(leaderboard[2].username || "??").substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <h3 className="font-bold text-sm md:text-base truncate max-w-[100px] md:max-w-full mx-auto">
                     {getMaskedName(leaderboard[2].username, leaderboard[2].user_id)}
@@ -185,13 +199,12 @@ const Leaderboard = () => {
             <div className="space-y-3">
               {leaderboard.length > 0 ? (
                 leaderboard.slice(leaderboard.length >= 3 ? 3 : 0).map((entry) => (
-                  <Card 
-                    key={entry.user_id} 
-                    className={`p-4 transition-all ${
-                      entry.user_id === currentUserId 
-                        ? 'ring-2 ring-primary bg-primary/5' 
-                        : 'hover:bg-accent/50'
-                    }`}
+                  <Card
+                    key={entry.user_id}
+                    className={`p-4 transition-all ${entry.user_id === currentUserId
+                      ? 'ring-2 ring-primary bg-primary/5'
+                      : 'hover:bg-accent/50'
+                      }`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -199,9 +212,13 @@ const Leaderboard = () => {
                           #{entry.rank}
                         </div>
                         <Avatar className="h-10 w-10 shrink-0">
-                          <AvatarFallback className="bg-muted">
-                            {entry.username.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
+                          {entry.avatar_url ? (
+                            <img src={entry.avatar_url} alt={entry.username} className="h-full w-full object-cover" />
+                          ) : (
+                            <AvatarFallback className="bg-muted">
+                              {(entry.username || "??").substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold flex items-center gap-2 truncate">

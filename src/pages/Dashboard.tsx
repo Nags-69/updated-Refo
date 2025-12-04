@@ -9,10 +9,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Notifications } from "@/components/Notifications";
-import BottomNav from "@/components/BottomNav";
+
 import OfferCard from "@/components/OfferCard";
 import { useWallet, useTasks, useOffers, useAffiliateLink } from "@/hooks/useDashboardData";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const item = {
+  hidden: { y: 20, opacity: 0 },
+  show: { y: 0, opacity: 1 }
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -317,20 +333,26 @@ const Dashboard = () => {
 
           <TabsContent value="offers" className="space-y-4">
             {offers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              >
                 {offers.map((offer: any) => (
-                  <OfferCard
-                    key={offer.id}
-                    title={offer.title}
-                    description={offer.description}
-                    reward={offer.reward}
-                    logoUrl={offer.logo_url}
-                    category={offer.category}
-                    status={offer.status}
-                    onStartTask={() => handleOfferClick(offer)}
-                  />
+                  <motion.div key={offer.id} variants={item}>
+                    <OfferCard
+                      title={offer.title}
+                      description={offer.description}
+                      reward={offer.reward}
+                      logoUrl={offer.logo_url}
+                      category={offer.category}
+                      status={offer.status}
+                      onStartTask={() => handleOfferClick(offer)}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">
@@ -345,46 +367,55 @@ const Dashboard = () => {
               Upload proof screenshots for your tasks. Multiple images supported.
             </p>
             {tasks.length > 0 ? (
-              tasks.map((task: any) => (
-                <Card key={task.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-semibold">{task.offers?.title}</h3>
-                      <p className="text-sm text-muted-foreground">Reward: ₹{task.offers?.reward}</p>
-                      {getStatusBadge(task.status)}
-                      {task.proof_url && task.proof_url.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {task.proof_url.length} screenshot(s) uploaded
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleUploadClick(task.id)}
-                        disabled={uploadingTaskId === task.id}
-                      >
-                        {uploadingTaskId === task.id ? "Uploading..." :
-                          task.proof_url && task.proof_url.length > 0 ? "Add More" : "Upload Proof"}
-                      </Button>
-                      {selectedFiles.length > 0 && uploadingTaskId === task.id && (
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="space-y-4"
+              >
+                {tasks.map((task: any) => (
+                  <motion.div key={task.id} variants={item}>
+                    <Card className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <h3 className="font-semibold">{task.offers?.title}</h3>
+                          <p className="text-sm text-muted-foreground">Reward: ₹{task.offers?.reward}</p>
+                          {getStatusBadge(task.status)}
+                          {task.proof_url && task.proof_url.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {task.proof_url.length} screenshot(s) uploaded
+                            </p>
+                          )}
+                        </div>
                         <div className="flex flex-col gap-2">
-                          <p className="text-xs text-muted-foreground">
-                            {selectedFiles.length} file(s) selected
-                          </p>
                           <Button
                             size="sm"
-                            variant="default"
-                            onClick={handleFileUpload}
+                            onClick={() => handleUploadClick(task.id)}
+                            disabled={uploadingTaskId === task.id}
                           >
-                            Confirm Upload
+                            {uploadingTaskId === task.id ? "Uploading..." :
+                              task.proof_url && task.proof_url.length > 0 ? "Add More" : "Upload Proof"}
                           </Button>
+                          {selectedFiles.length > 0 && uploadingTaskId === task.id && (
+                            <div className="flex flex-col gap-2">
+                              <p className="text-xs text-muted-foreground">
+                                {selectedFiles.length} file(s) selected
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={handleFileUpload}
+                              >
+                                Confirm Upload
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))}
+              </motion.div>
             ) : (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">
@@ -399,53 +430,59 @@ const Dashboard = () => {
             type="file"
             accept="image/*"
             multiple
-            className="hidden"
             onChange={handleFileSelect}
+            className="hidden"
           />
 
           <TabsContent value="affiliate" className="space-y-4">
-            <Card className="relative overflow-hidden p-6">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5 opacity-50" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="font-heading font-semibold text-2xl mb-2">Affiliate Program</h3>
-                    <p className="text-sm text-muted-foreground">Exciting rewards coming your way!</p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="relative overflow-hidden p-6">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5 opacity-50" />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="font-heading font-semibold text-2xl mb-2">Affiliate Program</h3>
+                      <p className="text-sm text-muted-foreground">Exciting rewards coming your way!</p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs px-3 py-1.5 font-semibold">
+                      Coming Soon
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="text-xs px-3 py-1.5 font-semibold">
-                    Coming Soon
-                  </Badge>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="bg-muted/50 rounded-lg p-6 text-center space-y-2">
-                    <p className="text-lg font-medium">Share & Earn Program</p>
-                    <p className="text-sm text-muted-foreground">
-                      Our affiliate program is launching soon! Get ready to earn bonus rewards by inviting friends.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
-                      <p className="font-semibold mb-1">📊 Track Referrals</p>
-                      <p className="text-muted-foreground text-xs">Monitor your affiliate performance</p>
+                  <div className="space-y-4">
+                    <div className="bg-muted/50 rounded-lg p-6 text-center space-y-2">
+                      <p className="text-lg font-medium">Share & Earn Program</p>
+                      <p className="text-sm text-muted-foreground">
+                        Our affiliate program is launching soon! Get ready to earn bonus rewards by inviting friends.
+                      </p>
                     </div>
-                    <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
-                      <p className="font-semibold mb-1">💰 Earn Bonuses</p>
-                      <p className="text-muted-foreground text-xs">Get rewarded for each conversion</p>
-                    </div>
-                    <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
-                      <p className="font-semibold mb-1">🎁 Special Perks</p>
-                      <p className="text-muted-foreground text-xs">Unlock exclusive benefits</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
+                        <p className="font-semibold mb-1">📊 Track Referrals</p>
+                        <p className="text-muted-foreground text-xs">Monitor your affiliate performance</p>
+                      </div>
+                      <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
+                        <p className="font-semibold mb-1">💰 Earn Bonuses</p>
+                        <p className="text-muted-foreground text-xs">Get rewarded for each conversion</p>
+                      </div>
+                      <div className="bg-card/50 p-4 rounded-lg border border-border/50 text-center">
+                        <p className="font-semibold mb-1">🎁 Special Perks</p>
+                        <p className="text-muted-foreground text-xs">Unlock exclusive benefits</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
 
-      <BottomNav />
+
 
       {/* Instructions Dialog */}
       <Dialog open={!!selectedOffer} onOpenChange={() => setSelectedOffer(null)}>

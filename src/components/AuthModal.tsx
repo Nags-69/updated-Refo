@@ -40,19 +40,16 @@ export const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => 
     try {
       setLoading(true);
       const redirectUrl = `${window.location.origin}/update-password`;
-      console.log("Attempting password reset for:", resetEmail);
-      console.log("Redirect URL:", redirectUrl);
 
-      if (window.location.hostname === "localhost") {
-        console.warn("Running on localhost. Ensure this URL is whitelisted in Supabase Auth settings:", redirectUrl);
-      }
+
+
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: redirectUrl,
       });
 
       if (error) {
-        console.error("Supabase Reset Password Error:", error);
+
         throw error;
       }
 
@@ -65,7 +62,7 @@ export const AuthModal = ({ open, onOpenChange, onSuccess }: AuthModalProps) => 
       // without refactoring to Controlled. 
       // For now, the user can click Cancel/Close.
     } catch (error: any) {
-      console.error("Reset password error:", error);
+
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);

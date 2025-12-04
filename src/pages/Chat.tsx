@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Send } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
+
 import { streamAIChat } from "@/utils/aiChat";
 import { useToast } from "@/hooks/use-toast";
 
@@ -233,8 +233,8 @@ const Chat = () => {
             >
               <Card
                 className={`max-w-[80%] p-4 ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card"
                   }`}
               >
                 <p className="text-sm">{message.content}</p>
@@ -272,7 +272,7 @@ const Chat = () => {
         </div>
       </div>
 
-      <BottomNav />
+
     </div>
   );
 };

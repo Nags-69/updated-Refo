@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet as WalletIcon, TrendingUp, Clock, CheckCircle2, Banknote, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import BottomNav from "@/components/BottomNav";
+
 
 const Wallet = () => {
   const [wallet, setWallet] = useState<any>(null);
@@ -413,7 +413,7 @@ const Wallet = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-2xl ${item.type === "earning" || item.type === "bonus" ? "bg-success/20" :
-                              item.type === "withdrawal" || item.type === "deduction" ? "bg-primary/20" : "bg-destructive/20"
+                            item.type === "withdrawal" || item.type === "deduction" ? "bg-primary/20" : "bg-destructive/20"
                             }`}>
                             {getStatusIcon(item.status)}
                           </div>
@@ -528,7 +528,7 @@ const Wallet = () => {
         </div>
       </div>
 
-      <BottomNav />
+
     </div>
   );
 };

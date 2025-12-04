@@ -40,7 +40,7 @@ const BottomNav = () => {
         onOpenChange={setShowAuthModal}
         onSuccess={() => setShowAuthModal(false)}
       />
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg md:left-1/2 md:-translate-x-1/2 md:max-w-md md:rounded-t-3xl md:bottom-4">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-lg border-t border-border shadow-lg md:left-1/2 md:-translate-x-1/2 md:max-w-md md:rounded-t-3xl md:bottom-4 supports-[padding-bottom:env(safe-area-inset-bottom)]:pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-around h-16 px-4">
           {navItems.map((item) => {
             const Icon = item.icon;

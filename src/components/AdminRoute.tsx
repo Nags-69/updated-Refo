@@ -16,19 +16,19 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  console.log("[AdminRoute] Rendering. State:", { isLoading, user, isAdmin, adminLoading });
+
 
 
   useEffect(() => {
     if (!isLoading && !user) {
-      console.log("[AdminRoute] User not logged in after initial load. Showing auth modal.");
+
       setShowAuthModal(true);
     }
   }, [user, isLoading]);
 
   useEffect(() => {
     if (!adminLoading && isAdmin === false && user) {
-      console.log("[AdminRoute] Access Denied: User is not an admin. Navigating away.");
+
       toast({
         title: "Access Denied",
         description: "You don't have permission to access this page.",
@@ -50,7 +50,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   };
 
   if (isLoading || adminLoading) {
-    console.log("[AdminRoute] Showing loading screen.");
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -62,7 +62,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   if (!user) {
-    console.log("[AdminRoute] User is not available. Rendering sign-in modal/prompt.");
+
     return (
       <>
         <AuthModal
@@ -78,7 +78,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   if (!isAdmin) {
-    console.log("[AdminRoute] User is not admin. Rendering access denied message.");
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -87,7 +87,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
       </div>
     );
   }
-  
-  console.log("[AdminRoute] Access granted. Rendering child components.");
+
+
   return <>{children}</>;
 };

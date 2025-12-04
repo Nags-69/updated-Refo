@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, TrendingUp, Flame } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeaderboardEntry {
@@ -263,7 +263,7 @@ const Leaderboard = () => {
         )}
       </div>
 
-      <BottomNav />
+
     </div>
   );
 };

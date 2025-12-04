@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { User, Mail, Phone, CheckCircle2, LogOut, Edit2, Save, X, Calendar, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import BottomNav from "@/components/BottomNav";
+
 import BadgesDisplay from "@/components/BadgesDisplay";
 import {
   Dialog,
@@ -465,7 +465,7 @@ const Profile = () => {
         </div>
       </div>
 
-      <BottomNav />
+
     </div>
   );
 };

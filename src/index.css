@@ -79,7 +79,6 @@
     scroll-behavior: smooth;
   }
 
-  /* Improve font rendering */
   h1,
   h2,
   h3,
@@ -91,6 +90,10 @@
 }
 
 @layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+  }
+
   .glass-card {
     @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
   }
@@ -103,32 +106,34 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500;
   }
 
-  /* Hide scrollbar for Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
 
-  /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .ease-smooth {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
 /* Custom Animations */
 @keyframes float {
-  0% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
 
   50% {
     transform: translateY(-10px);
-  }
-
-  100% {
-    transform: translateY(0px);
   }
 }
 
@@ -150,9 +155,10 @@
   animation: marquee 30s linear infinite;
 }
 
-/* Blob Animation */
 @keyframes blob {
-  0% {
+
+  0%,
+  100% {
     transform: translate(0px, 0px) scale(1);
   }
 
@@ -162,10 +168,6 @@
 
   66% {
     transform: translate(-20px, 20px) scale(0.9);
-  }
-
-  100% {
-    transform: translate(0px, 0px) scale(1);
   }
 }
 
@@ -179,4 +181,56 @@
 
 .animation-delay-4000 {
   animation-delay: 4s;
+}
+
+/* New Animations for Newdon Design */
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.8s ease-out forwards;
+  opacity: 0;
+  /* Start hidden */
+}
+
+@keyframes pulse-soft {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 3s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
 }

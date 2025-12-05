@@ -21,9 +21,18 @@ import {
 } from "@/components/ui/dialog";
 import { compressImage } from "@/utils/imageCompression";
 
+interface ProfileData {
+  id: string;
+  username: string | null;
+  avatar_url: string | null;
+  is_verified: boolean;
+  created_at: string;
+  phone: string | null;
+}
+
 const Profile = () => {
   const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -209,7 +218,7 @@ const Profile = () => {
         throw updateError;
       }
 
-      setProfile({ ...profile, avatar_url: publicUrl });
+      setProfile({ ...profile, avatar_url: publicUrl } as ProfileData);
       toast({
         title: "Success",
         description: "Avatar updated successfully",
@@ -235,7 +244,7 @@ const Profile = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setProfile({ ...profile, avatar_url: null });
+      setProfile({ ...profile, avatar_url: null } as ProfileData);
       toast({ title: "Success", description: "Avatar removed" });
     }
     setLoading(false);
@@ -251,7 +260,7 @@ const Profile = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setProfile({ ...profile, avatar_url: url });
+      setProfile({ ...profile, avatar_url: url } as ProfileData);
       toast({ title: "Success", description: "Avatar updated" });
       setIsPresetOpen(false);
     }

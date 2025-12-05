@@ -1,73 +1,129 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import AntigravityBackground from "@/components/ui/AntigravityBackground";
-import Footer from "@/components/Footer";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-
-import OfferCard from "@/components/OfferCard";
+import BottomNav from "@/components/BottomNav";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Star, Shield, ArrowRight, Smartphone, Coins, Users, Zap, TrendingUp, Gift, Download, Play, CreditCard } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  CheckCircle2, Star, Shield, ArrowRight, Download,
+  Smartphone, Wallet, Users, Trophy, Zap, Clock,
+  CreditCard, Gift, TrendingUp, Sparkles
+} from "lucide-react";
+import NewdonBackground from "@/components/NewdonBackground";
+import ScrollCard from "@/components/ScrollCard";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
-const RevealText = ({ children, delay = 0, className = "" }: { children: string, delay?: number, className?: string }) => {
-  const words = children.split(" ");
+// Animated section wrapper component
+const AnimatedSection = ({
+  children,
+  className = "",
+  delay = 0,
+  threshold = 0.1
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+  threshold?: number;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold, rootMargin: "50px" }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [threshold]);
+
   return (
-    <span className={`inline-block ${className}`}>
-      {words.map((word, i) => (
-        <motion.span
-          key={i}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: delay + i * 0.05, ease: "easeOut" }}
-          className="inline-block mr-[0.25em]"
-        >
-          {word}
-        </motion.span>
-      ))}
-    </span>
+    <div
+      ref={ref}
+      className={cn(
+        "transition-all duration-700 ease-smooth",
+        isVisible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-8",
+        className
+      )}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
   );
 };
 
-const Index = () => {
-  const navigate = useNavigate();
-  const [offers, setOffers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user } = useAuth();
-  const { scrollY } = useScroll();
-
-  const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 300], [1, 0.95]);
+// Animated counter component
+const AnimatedCounter = ({ value, label }: { value: string; label: string }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadOffers();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
+      { threshold: 0.5 }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
   }, []);
 
-  const loadOffers = async () => {
-    try {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "text-center group transition-all duration-500 ease-smooth",
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+      )}
+    >
+      <div className="text-3xl md:text-4xl font-extrabold text-foreground group-hover:text-primary transition-colors duration-300">
+        {value}
+      </div>
+      <div className="text-sm text-muted-foreground mt-1 font-medium">{label}</div>
+    </div>
+  );
+};
+
+const Newdon = () => {
+  const navigate = useNavigate();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [featuredOffers, setFeaturedOffers] = useState<any[]>([]);
+  const [heroVisible, setHeroVisible] = useState(false);
+  const { user } = useAuth();
+
+  // Trigger hero animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setHeroVisible(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchFeaturedOffers = async () => {
       const { data } = await supabase
         .from("offers")
         .select("*")
         .eq("is_public", true)
         .eq("status", "active")
+        .order("created_at", { ascending: false })
         .limit(6);
 
-      if (data) setOffers(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (data) {
+        setFeaturedOffers(data);
+      }
+    };
+    fetchFeaturedOffers();
+  }, []);
 
   const handleGetStarted = () => {
     if (user) {
@@ -77,350 +133,591 @@ const Index = () => {
     }
   };
 
+  const appCategories = [
+    { name: "Finance Apps", count: "25+", icon: CreditCard, color: "text-emerald-500" },
+    { name: "Gaming Apps", count: "40+", icon: Trophy, color: "text-amber-500" },
+    { name: "Shopping Apps", count: "30+", icon: Gift, color: "text-pink-500" },
+    { name: "Social Apps", count: "20+", icon: Users, color: "text-blue-500" },
+  ];
+
+  const stats = [
+    { value: "₹5L+", label: "Total Paid Out" },
+    { value: "500+", label: "Happy Users" },
+    { value: "100+", label: "Active Offers" },
+    { value: "24hrs", label: "Avg Payout Time" },
+  ];
+
+  const howItWorksSteps = [
+    {
+      step: "01",
+      icon: Download,
+      title: "Browse & Download",
+      desc: "Explore our curated list of high-paying apps. Pick any offer that interests you and download the app.",
+    },
+    {
+      step: "02",
+      icon: Smartphone,
+      title: "Complete Tasks",
+      desc: "Follow simple instructions like signing up, making a first transaction, or reaching a game level.",
+    },
+    {
+      step: "03",
+      icon: Wallet,
+      title: "Get Paid Instantly",
+      desc: "Upload your proof, get verified within 24 hours, and withdraw to UPI or bank account.",
+    },
+  ];
+
+  const features = [
+    {
+      icon: Shield,
+      title: "100% Secure",
+      desc: "Your data is encrypted. We never share your information with third parties.",
+      color: "text-emerald-500",
+    },
+    {
+      icon: Clock,
+      title: "Fast Payouts",
+      desc: "Get paid within 24-48 hours. No minimum waiting period for withdrawals.",
+      color: "text-blue-500",
+    },
+    {
+      icon: CreditCard,
+      title: "Zero Fees",
+      desc: "Keep 100% of your earnings. No hidden charges, no deductions ever.",
+      color: "text-amber-500",
+    },
+    {
+      icon: Users,
+      title: "Refer & Earn",
+      desc: "Invite friends and earn bonus rewards when they complete tasks.",
+      color: "text-pink-500",
+    },
+    {
+      icon: TrendingUp,
+      title: "Track Progress",
+      desc: "Real-time dashboard showing your earnings, tasks, and leaderboard rank.",
+      color: "text-purple-500",
+    },
+    {
+      icon: Gift,
+      title: "Daily Bonuses",
+      desc: "Streak rewards, badges, and surprise bonuses for active users.",
+      color: "text-red-500",
+    },
+  ];
+
+  const faqs = [
+    {
+      q: "How do I earn money on Refo?",
+      a: "Simply browse our offers, download the recommended apps, complete the specified tasks (like signing up or making a transaction), and submit proof. Once verified, the reward is credited to your wallet.",
+    },
+    {
+      q: "Is Refo free to use?",
+      a: "Yes! Refo is 100% free. There are no hidden fees, no subscription charges, and no deductions from your earnings. You keep everything you earn.",
+    },
+    {
+      q: "How quickly will I get paid?",
+      a: "Most tasks are verified within 24-48 hours. Once verified, you can withdraw your earnings instantly to your UPI ID or bank account.",
+    },
+    {
+      q: "What kind of tasks do I need to complete?",
+      a: "Tasks vary by app. Common tasks include: signing up, completing KYC, making a first deposit, playing games, or shopping. Each offer clearly mentions the required task.",
+    },
+    {
+      q: "Is my data safe with Refo?",
+      a: "Absolutely. We use industry-standard encryption and never share your personal information with third parties. Your privacy and security are our top priorities.",
+    },
+  ];
+
   return (
-    <>
+    <div className="relative min-h-screen bg-background">
+      {/* Auth Modal */}
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
         onSuccess={() => {
           setShowAuthModal(false);
-          navigate("/dashboard");
         }}
       />
-      <div className="min-h-screen bg-transparent pb-0 selection:bg-primary/20 relative">
-        <AntigravityBackground />
 
+      {/* Animated Background */}
+      <NewdonBackground />
+
+      {/* Main Content */}
+      <div className="relative z-10 min-h-screen ">
         {/* Hero Section */}
-        <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
-          <motion.div
-            style={{ opacity: heroOpacity, scale: heroScale }}
-            className="relative z-20 max-w-7xl mx-auto px-4 py-10 md:py-16 text-center"
-          >
-            <div className="space-y-6">
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 bg-secondary/50 backdrop-blur-md px-5 py-2 rounded-full border border-white/10 shadow-xl"
-              >
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                </span>
-                <span className="text-sm font-medium bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 tracking-wide">
-                  500+ users earning daily
-                </span>
-              </motion.div>
-
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold tracking-tighter leading-[1.1]">
-                <span className="block bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
-                  <RevealText>Download apps.</RevealText>
-                </span>
-                <span className="block text-primary relative mt-1">
-                  <RevealText delay={0.3}>Earn rewards.</RevealText>
-                  <svg className="absolute -bottom-2 left-0 w-full h-2.5 text-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
-                    <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                </span>
-              </h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
-                className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed font-light tracking-wide"
-              >
-                The smartest way to monetize your free time. Complete simple tasks, get paid instantly. No hidden fees.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="pt-4"
-              >
-                <Button
-                  size="lg"
-                  onClick={handleGetStarted}
-                  className="h-12 px-8 text-base rounded-full bg-primary hover:bg-primary/90 shadow-[0_0_30px_-10px_rgba(var(--primary),0.5)] hover:shadow-[0_0_50px_-15px_rgba(var(--primary),0.6)] transition-all duration-300"
-                >
-                  Start Earning Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </motion.div>
-
-              {/* Trust Chips */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-                className="flex flex-wrap items-center justify-center gap-5 pt-10 opacity-80"
-              >
-                {[
-                  { icon: Star, text: "4.9/5 Rating" },
-                  { icon: Shield, text: "Secure Payouts" },
-                  { icon: Zap, text: "Instant Withdrawals" }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <item.icon className="w-4 h-4 text-primary" />
-                    {item.text}
-                  </div>
-                ))}
-              </motion.div>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* Endless Loop Marquee */}
-        <div className="relative overflow-hidden bg-secondary/30 py-6 border-y border-border/50 backdrop-blur-sm">
-          <div className="flex gap-12 animate-marquee whitespace-nowrap">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 text-base font-bold text-muted-foreground/80 tracking-wide">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-                <span>High Payouts</span>
-                <span className="text-border mx-3">•</span>
-                <Gift className="w-4 h-4 text-purple-500" />
-                <span>Daily Bonuses</span>
-                <span className="text-border mx-3">•</span>
-                <Shield className="w-4 h-4 text-blue-500" />
-                <span>100% Safe</span>
-                <span className="text-border mx-3">•</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Sticky Stacking "How it Works" Section */}
-        <section className="relative py-16">
-          <div className="max-w-7xl mx-auto px-4 mb-12 text-center">
-            <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4 tracking-tight">
-              <RevealText>How it Works</RevealText>
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light leading-relaxed">
-              Three simple steps to your first payout.
-            </p>
-          </div>
-
-          <div className="max-w-4xl mx-auto px-4 relative">
-            {[
-              {
-                step: "01",
-                title: "Download & Install",
-                desc: "Browse our curated list of trusted apps from top developers. Click to download directly from the official App Store or Play Store. We only partner with verified publishers to ensure your safety.",
-                details: [
-                  "Verified Apps Only",
-                  "Direct Store Links",
-                  "No Sideloading Required"
-                ],
-                icon: Download,
-                color: "bg-blue-500",
-                gradient: "from-blue-500/20 to-cyan-500/20"
-              },
-              {
-                step: "02",
-                title: "Complete Tasks",
-                desc: "Follow the simple instructions provided for each app. Most tasks are as easy as 'Install and Open' or 'Reach Level 5'. Our system automatically tracks your progress in real-time.",
-                details: [
-                  "Real-time Tracking",
-                  "Simple Instructions",
-                  "Instant Verification"
-                ],
-                icon: Play,
-                color: "bg-green-500",
-                gradient: "from-green-500/20 to-emerald-500/20"
-              },
-              {
-                step: "03",
-                title: "Get Paid Instantly",
-                desc: "Once your task is verified, the reward is instantly credited to your Refo wallet. Withdraw your earnings via UPI, Bank Transfer, or Gift Cards starting from just ₹50.",
-                details: [
-                  "Instant Withdrawals",
-                  "Multiple Payment Methods",
-                  "Low Minimum Payout"
-                ],
-                icon: CreditCard,
-                color: "bg-purple-500",
-                gradient: "from-purple-500/20 to-pink-500/20"
-              }
-            ].map((item, i) => (
-              <div key={i} className="sticky top-20 mb-10 last:mb-0">
-                <motion.div
-                  initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                  viewport={{ once: true, margin: "-10%" }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="relative min-h-[60vh] rounded-[2rem] bg-card/90 backdrop-blur-2xl border border-white/10 shadow-xl overflow-hidden flex flex-col md:flex-row group"
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-20 group-hover:opacity-30 transition-opacity duration-500`} />
-
-                  {/* Content Side */}
-                  <div className="flex-1 p-6 md:p-12 flex flex-col justify-center relative z-10">
-                    <div className="inline-flex items-center gap-3 mb-4">
-                      <span className={`flex items-center justify-center w-10 h-10 rounded-full ${item.color} text-white font-bold text-lg shadow-lg shadow-${item.color}/30`}>
-                        {item.step}
-                      </span>
-                      <span className="text-base font-semibold text-muted-foreground tracking-[0.2em] uppercase">Step</span>
-                    </div>
-
-                    <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-[1.1] tracking-tight">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-base text-muted-foreground leading-relaxed mb-6 max-w-md font-light">
-                      {item.desc}
-                    </p>
-
-                    <div className="space-y-3">
-                      {item.details.map((detail, idx) => (
-                        <div key={idx} className="flex items-center gap-3 text-base font-medium">
-                          <CheckCircle2 className={`w-5 h-5 ${item.color.replace('bg-', 'text-')}`} />
-                          {detail}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Visual Side (Icon/Graphic) */}
-                  <div className="flex-1 bg-black/5 flex items-center justify-center p-6 md:p-12 relative overflow-hidden">
-                    <div className={`absolute inset-0 bg-gradient-to-tl ${item.gradient} opacity-20`} />
-                    <motion.div
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                      className={`w-40 h-40 md:w-56 md:h-56 rounded-[1.5rem] ${item.color} flex items-center justify-center shadow-2xl shadow-${item.color}/40 relative z-10`}
-                    >
-                      <item.icon className="w-20 h-20 md:w-28 md:h-28 text-white" />
-                    </motion.div>
-                  </div>
-                </motion.div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Top Offers Section */}
-        <section className="py-16 bg-secondary/20 relative z-10">
-          <div className="max-w-7xl mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-10 flex flex-col md:flex-row justify-between items-end gap-5"
+        <section className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
+          <div className="max-w-5xl mx-auto text-center space-y-6">
+            {/* Badge */}
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 glass px-5 py-2.5 rounded-full shadow-lg transition-all duration-700 ease-smooth",
+                heroVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-4"
+              )}
             >
-              <div>
-                <h2 className="text-3xl font-heading font-bold mb-3 tracking-tight">Top Offers</h2>
-                <p className="text-muted-foreground text-lg font-light">Start earning with these popular tasks</p>
-              </div>
-              <Button variant="outline" onClick={handleGetStarted} className="hidden md:flex rounded-full px-5 py-4 text-sm">
-                View All Offers <ArrowRight className="ml-2 h-3.5 w-3.5" />
-              </Button>
-            </motion.div>
+              <Sparkles className="w-4 h-4 text-primary animate-pulse-soft" />
+              <span className="text-sm font-medium tracking-wide">Join 500+ users earning daily</span>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {loading ? (
-                Array(6).fill(0).map((_, i) => (
-                  <div key={i} className="p-5 border rounded-[1.25rem] space-y-3 bg-card/50">
-                    <div className="flex gap-3">
-                      <Skeleton className="w-14 h-14 rounded-xl" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
+            {/* Main Heading */}
+            <h1
+              className={cn(
+                "text-5xl md:text-7xl lg:text-8xl font-heading font-extrabold tracking-tighter leading-[0.95] transition-all duration-2000 ease-smooth",
+                heroVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              )}
+              style={{ transitionDelay: "200ms" }}
+            >
+              Download.
+              <br />
+              <span className="bg-gradient-to-r from-primary via-violet-500 to-pink-500 bg-clip-text text-transparent animate-pulse-soft">
+                Earn.
+              </span>
+              <br />
+              Repeat.
+            </h1>
+
+            {/* Subtitle */}
+            <p
+              className={cn(
+                "text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed transition-all duration-700 ease-smooth",
+                heroVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              )}
+              style={{ transitionDelay: "300ms" }}
+            >
+              Turn your smartphone into a money machine. Download apps, complete simple tasks,
+              and watch your earnings grow. <span className="text-foreground font-semibold">No fees. No hassle. Just rewards.</span>
+            </p>
+
+            {/* CTA Buttons */}
+            <div
+              className={cn(
+                "flex flex-col sm:flex-row gap-4 justify-center items-center pt-2 transition-all duration-700 ease-smooth",
+                heroVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              )}
+              style={{ transitionDelay: "450ms" }}
+            >
+              <Button
+                size="lg"
+                onClick={handleGetStarted}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-10 py-7 text-lg font-bold shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300 ease-smooth group"
+              >
+                Start Earning Now
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+              </Button>
+              <p className="text-sm text-muted-foreground font-medium">Free forever • No credit card</p>
+            </div>
+
+            {/* Stats Row */}
+            <div
+              className={cn(
+                "grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 max-w-3xl mx-auto transition-all duration-700 ease-smooth",
+                heroVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              )}
+              style={{ transitionDelay: "600ms" }}
+            >
+              {stats.map((stat, i) => (
+                <AnimatedCounter key={i} value={stat.value} label={stat.label} />
+              ))}
+            </div>
+          </div>
+
+          {/* Scroll indicator */}
+          <div
+            className={cn(
+              "absolute bottom-8 left-1/2 -translate-x-1/2 transition-all duration-1000 ease-smooth",
+              heroVisible ? "opacity-100" : "opacity-0"
+            )}
+            style={{ transitionDelay: "1000ms" }}
+          >
+            <div className="animate-float">
+              <div className="w-6 h-10 border-2 border-muted-foreground/30 rounded-full flex items-start justify-center p-2">
+                <div className="w-1.5 h-3 bg-muted-foreground/50 rounded-full animate-pulse-soft" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* --- STACKED CARDS SECTION --- */}
+        {/* We use pb-[20vh] to ensure the last card has room to finish scrolling/animating before the section ends */}
+        <section className="relative px-4 pb-[20vh] bg-background">
+          <div className="max-w-6xl mx-auto w-full">
+
+            {/* Card 1: How It Works */}
+            <ScrollCard index={0} totalCards={3}>
+              <div className="bg-card/90 backdrop-blur-xl rounded-3xl border border-border/50 shadow-2xl p-8 md:p-12 lg:p-16 min-h-[60vh] flex flex-col justify-center">
+                <div className="grid md:grid-cols-2 gap-12 items-center">
+                  <AnimatedSection>
+                    <div className="space-y-6">
+                      <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-1.5 animate-fade-in">
+                        <Zap className="w-3 h-3 mr-1" />
+                        How It Works
+                      </Badge>
+                      <h2 className="text-4xl md:text-5xl font-heading font-bold">
+                        Three Simple Steps to
+                        <span className="text-primary"> Start Earning</span>
+                      </h2>
+                      <p className="text-lg text-muted-foreground">
+                        No experience needed. No investment required. Just follow these easy steps
+                        and start making money from your phone today.
+                      </p>
+                      <Button
+                        onClick={handleGetStarted}
+                        size="lg"
+                        className="rounded-full group hover:scale-105 transition-all duration-300"
+                      >
+                        Get Started <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                      </Button>
+                    </div>
+                  </AnimatedSection>
+
+                  <div className="space-y-6">
+                    {howItWorksSteps.map((item, i) => (
+                      <AnimatedSection key={i} delay={i * 150}>
+                        <div className="flex gap-4 p-4 rounded-2xl bg-background/50 border border-border/30 hover:border-primary/30 hover:bg-background/80 transition-all duration-300 group cursor-default">
+                          <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
+                            <item.icon className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-bold text-primary">{item.step}</span>
+                              <h3 className="font-semibold text-lg">{item.title}</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{item.desc}</p>
+                          </div>
+                        </div>
+                      </AnimatedSection>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </ScrollCard>
+
+            {/* Card 2: App Categories */}
+            <ScrollCard index={1} totalCards={3}>
+              <div className="bg-gradient-to-br from-card/95 via-card/90 to-primary/5 backdrop-blur-xl rounded-3xl border border-border/50 shadow-2xl mb-24 p-8 md:p-12 lg:p-16 min-h-[60vh] flex flex-col justify-center">
+                <AnimatedSection className="text-center mb-12">
+                  <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 px-4 py-1.5 mb-4">
+                    <Trophy className="w-3 h-3 mr-1" />
+                    Top Earning Categories
+                  </Badge>
+                  <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4">
+                    100+ Apps Waiting
+                    <span className="text-primary"> For You</span>
+                  </h2>
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    From finance to gaming, shopping to social — earn rewards from apps you'd probably use anyway.
+                  </p>
+                </AnimatedSection>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                  {appCategories.map((cat, i) => (
+                    <AnimatedSection key={i} delay={i * 100}>
+                      <div
+                        className="group p-6 rounded-2xl bg-background/60 border border-border/30 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                      >
+                        <cat.icon className={`w-10 h-10 ${cat.color} mb-4 group-hover:scale-110 transition-transform duration-300`} />
+                        <h3 className="font-semibold text-lg mb-1">{cat.name}</h3>
+                        <p className="text-2xl font-bold text-primary">{cat.count}</p>
+                        <p className="text-xs text-muted-foreground">Active Offers</p>
+                      </div>
+                    </AnimatedSection>
+                  ))}
+                </div>
+
+                <AnimatedSection delay={400}>
+                  <div className="bg-background/50 rounded-2xl p-6 md:p-8 border border-border/30 hover:border-primary/20 transition-all duration-300">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div className="text-center md:text-left">
+                        <h3 className="text-2xl font-bold mb-2">Popular Apps Right Now</h3>
+                        <p className="text-muted-foreground">
+                          PhonePe, Google Pay, Groww, Upstox, Dream11, MPL, Amazon, Flipkart & many more...
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleGetStarted}
+                        size="lg"
+                        className="rounded-full whitespace-nowrap group hover:scale-105 transition-all duration-300"
+                      >
+                        View All Offers <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                      </Button>
+                    </div>
+                  </div>
+                </AnimatedSection>
+              </div>
+            </ScrollCard>
+
+            {/* Card 3: Why Choose Us */}
+            <ScrollCard index={2} totalCards={3}>
+              <div className="bg-card/90 backdrop-blur-xl rounded-3xl border border-border/50 mt-4 shadow-2xl p-8 md:p-12 lg:p-16 min-h-[60vh] flex flex-col justify-center">
+                <AnimatedSection className="text-center mb-12">
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-4 py-1.5 mb-4">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Why Refo
+                  </Badge>
+                  <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4">
+                    Built for
+                    <span className="text-primary"> Earners Like You</span>
+                  </h2>
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    We're not just another rewards app. We're your partner in building a side income stream.
+                  </p>
+                </AnimatedSection>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                  {features.map((feature, i) => (
+                    <AnimatedSection key={i} delay={i * 100}>
+                      <div className="p-6 rounded-2xl bg-background/50 border border-border/30 hover:border-primary/30 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group">
+                        <feature.icon className={`w-8 h-8 ${feature.color} mb-4 group-hover:scale-110 transition-transform duration-300`} />
+                        <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                        <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                      </div>
+                    </AnimatedSection>
+                  ))}
+                </div>
+
+                {/* Trust Badges */}
+                <AnimatedSection delay={600}>
+                  <div className="flex flex-wrap items-center justify-center gap-4">
+                    <Badge variant="secondary" className="px-5 py-2.5 text-sm hover:scale-105 transition-transform duration-300 cursor-default">
+                      <Star className="w-4 h-4 text-amber-500 mr-2" />
+                      4.9/5 User Rating
+                    </Badge>
+                    <Badge variant="secondary" className="px-5 py-2.5 text-sm hover:scale-105 transition-transform duration-300 cursor-default">
+                      <Shield className="w-4 h-4 text-emerald-500 mr-2" />
+                      Verified Payments
+                    </Badge>
+                    <Badge variant="secondary" className="px-5 py-2.5 text-sm hover:scale-105 transition-transform duration-300 cursor-default">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 mr-2" />
+                      500+ Users Paid
+                    </Badge>
+                  </div>
+                </AnimatedSection>
+              </div>
+            </ScrollCard>
+          </div>
+        </section>
+
+        {/* Featured Apps Section */}
+        <section className="px-4 py-14">
+          <div className="max-w-6xl mx-auto">
+            <AnimatedSection className="text-center mb-8">
+              <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-1.5 mb-4">
+                <Sparkles className="w-3 h-3 mr-1" />
+                Featured Apps
+              </Badge>
+              <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4">
+                Start Earning
+                <span className="text-primary"> Today</span>
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Here are some of our top-paying apps to get you started right away.
+              </p>
+            </AnimatedSection>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              {featuredOffers.map((offer, index) => (
+                <AnimatedSection key={offer.id} delay={index * 100}>
+                  <Card
+                    className="p-5 hover-lift border-border/50 cursor-pointer group glass"
+                    onClick={handleGetStarted}
+                  >
+                    <div className="flex gap-4">
+                      <div className="w-16 h-16 bg-secondary rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300 ease-smooth overflow-hidden">
+                        {offer.logo_url ? (
+                          <img src={offer.logo_url} alt={offer.title} className="w-12 h-12 object-contain" />
+                        ) : (
+                          <span className="text-2xl font-heading font-bold text-primary">
+                            {offer.title.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-heading font-bold text-base line-clamp-1">{offer.title}</h3>
+                          <Badge className="bg-success text-success-foreground whitespace-nowrap font-bold">
+                            ₹{offer.reward}
+                          </Badge>
+                        </div>
+
+                        {offer.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                            {offer.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2">
+                          {offer.category && (
+                            <Badge variant="secondary" className="text-xs font-medium">
+                              {offer.category}
+                            </Badge>
+                          )}
+
+                          <Button
+                            size="sm"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-5 font-semibold hover:scale-105 transition-transform duration-300 ease-smooth"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGetStarted();
+                            }}
+                          >
+                            Start Task
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <Skeleton className="h-9 w-full rounded-full" />
-                  </div>
-                ))
-              ) : (
-                offers.map((offer: any, i) => (
-                  <motion.div
-                    key={offer.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <OfferCard
-                      title={offer.title}
-                      description={offer.description}
-                      logoUrl={offer.logo_url}
-                      reward={offer.reward}
-                      category={offer.category}
-                      onStartTask={handleGetStarted}
-                    />
-                  </motion.div>
-                ))
-              )}
+                  </Card>
+                </AnimatedSection>
+              ))}
             </div>
 
-            <div className="mt-10 text-center md:hidden">
-              <Button variant="outline" onClick={handleGetStarted} className="w-full rounded-full py-5 text-sm">
-                View All Offers <ArrowRight className="ml-2 h-3.5 w-3.5" />
+            <AnimatedSection className="text-center" delay={600}>
+              <Button
+                onClick={handleGetStarted}
+                variant="outline"
+                size="lg"
+                className="rounded-full font-semibold hover:scale-105 transition-transform duration-300 ease-smooth group"
+              >
+                View All 100+ Offers <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
               </Button>
-            </div>
+            </AnimatedSection>
           </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="px-4 py-16">
+          <AnimatedSection className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold mb-6">
+              Ready to Start
+              <span className="text-primary"> Earning?</span>
+            </h2>
+            <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
+              Join thousands of users who are already making money with Refo. It takes less than 2 minutes to get started.
+            </p>
+            <Button
+              size="lg"
+              onClick={handleGetStarted}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-10 py-7 text-lg font-bold shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300 ease-smooth group"
+            >
+              Create Free Account
+              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+            </Button>
+          </AnimatedSection>
         </section>
 
         {/* FAQ Section */}
-        <section className="max-w-3xl mx-auto px-4 py-16 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-10 text-center"
-          >
-            <h2 className="text-3xl font-heading font-bold mb-4 tracking-tight">Frequently Asked Questions</h2>
-            <p className="text-muted-foreground text-lg font-light">Everything you need to know about earning with Refo</p>
-          </motion.div>
+        <section className="px-4 py-14 bg-card/30">
+          <div className="max-w-4xl mx-auto">
+            <AnimatedSection className="text-center mb-8">
+              <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 px-4 py-1.5 mb-4 font-medium">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                FAQs
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">
+                Frequently Asked
+                <span className="text-primary"> Questions</span>
+              </h2>
+            </AnimatedSection>
 
-          <Accordion type="single" collapsible className="w-full space-y-3">
-            {[
-              {
-                q: "How do I earn money?",
-                a: "Simply download apps from our offers, complete the required tasks (like installing and opening the app), and upload a screenshot as proof. Once verified by our team, the reward is added to your wallet instantly."
-              },
-              {
-                q: "When can I withdraw my earnings?",
-                a: "You can request a payout anytime once your balance reaches the minimum withdrawal amount (usually ₹50). Payouts are processed within 24-48 hours via UPI or bank transfer directly to your account."
-              },
-              {
-                q: "Is there any fee to join?",
-                a: "No! Joining Refo is completely free. We don't charge any registration fees, and all payouts are processed without any hidden deductions. You keep what you earn."
-              },
-              {
-                q: "What if my task is rejected?",
-                a: "If your proof doesn't meet the requirements (e.g., blurry screenshot, wrong app), our team will provide specific feedback. You can fix the issue and resubmit. Always read the task instructions carefully!"
-              },
-              {
-                q: "How does the referral program work?",
-                a: "Share your unique affiliate link with friends. When they sign up and complete their first task, you earn a bonus reward! There's no limit to how many friends you can invite."
-              }
-            ].map((faq, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <AccordionItem value={`item-${i}`} className="border-none bg-secondary/30 backdrop-blur-sm rounded-lg px-5 data-[state=open]:bg-secondary/50 transition-all duration-300">
-                  <AccordionTrigger className="text-left font-semibold text-base hover:no-underline hover:text-primary transition-colors py-5 [&[data-state=open]>svg]:rotate-180">
-                    {faq.q}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground pb-5 leading-relaxed text-sm font-light">
-                    {faq.a}
-                  </AccordionContent>
-                </AccordionItem>
-              </motion.div>
-            ))}
-          </Accordion>
+            <div className="space-y-3">
+              {faqs.map((faq, i) => (
+                <AnimatedSection key={i} delay={i * 100}>
+                  <details
+                    className="group glass rounded-xl overflow-hidden"
+                  >
+                    <summary className="flex items-center justify-between p-5 cursor-pointer hover:bg-muted/30 transition-all duration-300 ease-smooth">
+                      <h3 className="font-semibold text-base pr-4">{faq.q}</h3>
+                      <ArrowRight className="w-5 h-5 text-muted-foreground group-open:rotate-90 transition-transform duration-300 ease-smooth flex-shrink-0" />
+                    </summary>
+                    <div className="px-5 pb-5 pt-0 text-muted-foreground text-sm leading-relaxed animate-fade-up">
+                      {faq.a}
+                    </div>
+                  </details>
+                </AnimatedSection>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <Footer />
+
+
+        {/* Footer */}
+        <AnimatedSection>
+          <footer className="glass border-t border-border/30">
+            <div className="max-w-6xl mx-auto px-4 py-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+                <div className="space-y-4">
+                  <h3 className="text-2xl font-heading font-bold">Refo</h3>
+                  <p className="text-sm text-muted-foreground">
+                    India's most trusted rewards platform. Download apps, earn real money.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs hover:scale-105 transition-transform duration-300">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Secure
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs hover:scale-105 transition-transform duration-300">
+                      <Shield className="w-3 h-3 mr-1" />
+                      No Fees
+                    </Badge>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-4">Platform</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li><button onClick={handleGetStarted} className="hover:text-foreground hover:translate-x-1 transition-all duration-300">Browse Offers</button></li>
+                    <li><button onClick={handleGetStarted} className="hover:text-foreground hover:translate-x-1 transition-all duration-300">Dashboard</button></li>
+                    <li><button onClick={handleGetStarted} className="hover:text-foreground hover:translate-x-1 transition-all duration-300">Leaderboard</button></li>
+                    <li><button onClick={handleGetStarted} className="hover:text-foreground hover:translate-x-1 transition-all duration-300">Wallet</button></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-4">Support</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Help Center</a></li>
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Contact Us</a></li>
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">FAQs</a></li>
+                    <li><button onClick={handleGetStarted} className="hover:text-foreground hover:translate-x-1 transition-all duration-300">AI Assistant</button></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-4">Legal</h4>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Privacy Policy</a></li>
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Terms of Service</a></li>
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Cookie Policy</a></li>
+                    <li><a href="#" className="hover:text-foreground hover:translate-x-1 inline-block transition-all duration-300">Refund Policy</a></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-border text-center">
+                <p className="text-sm text-muted-foreground">
+                  © {new Date().getFullYear()} Refo. All rights reserved. Made with ❤️ for earners across India.
+                </p>
+              </div>
+            </div>
+          </footer>
+        </AnimatedSection>
+
+        <BottomNav />
       </div>
-    </>
+    </div>
   );
 };
 
-export default Index;
+export default Newdon;
